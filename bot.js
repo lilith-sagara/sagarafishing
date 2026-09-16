@@ -315,7 +315,7 @@ async function startWhatsApp() {
                 const mins = Math.round((expires - Date.now()) / 60000);
                 return sock.sendMessage(from, { text: `⚡ *COOLDOWN ACTIVATOR AKTIF!*\n💰 -${cost.toLocaleString()} Koin\n⏱️ Cooldown semua rod → *1 detik* selama *${mins} menit*.` }, { quoted: m });
             }
-            if (cmd === 'inventory' || cmd === 'bag') {
+            if (cmd === 'inventory' || cmd === 'bag' || /^inventory\d+$/.test(cmd) || /^bag\d+$/.test(cmd)) {
                 const perPage = 15;
                 const mIdx = cmd.match(/^inventory(\d+)$/) || cmd.match(/^bag(\d+)$/);
                 let page = mIdx ? parseInt(mIdx[1]) : (parseInt(param) || 1);
