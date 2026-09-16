@@ -1,0 +1,22 @@
+{
+  "name": "sagarafishing",
+  "version": "1.0.0",
+  "description": "Bot Telegram game mancing dengan sistem Random Number Generator (RNG) lengkap dan antarmuka **100% Inline Keyboard Buttons**.",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^17.4.2",
+    "ourin-baileys": "^9.0.21",
+    "pino": "^10.3.1",
+    "pm2": "^7.0.4",
+    "qrcode-terminal": "^0.12.0",
+    "sqlite3": "^6.0.1",
+    "telegraf": "^4.16.3"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+session_wa/
+*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+__pycache__/
+venv/
+*.pyc
+.env
+*.log
+.DS_Store

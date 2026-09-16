@@ -1,0 +1,46 @@
+[
+  {
+    "tier": 1,
+    "name": "Pancing Bambu",
+    "description": "Pancingan tradisional dari bambu untuk pemula",
+    "price": 0,
+    "max_tier": 3,
+    "cooldown": 5.0,
+    "weight_multiplier": 1.0,
+    "luck_bonus": 0,
+    "emoji": "🎣"
+  },
+  {
+    "tier": 2,
+    "name": "Pancing Kayu",
+    "description": "Pancingan berkualitas dari kayu jati",
+    "price": 1000,
+    "max_tier": 5,
+    "cooldown": 4.0,
+    "weight_multiplier": 1.1,
+    "luck_bonus": 1,
+    "emoji": "🎣"
+  },
+  {
+    "tier": 3,
+    "name": "Pancing Fiber",
+    "description": "Pancingan modern dari serat karbon premium",
+    "price": 25000,
+    "max_tier": 6,
+    "cooldown": 3.0,
+    "weight_multiplier": 1.25,
+    "luck_bonus": 3,
+    "emoji": "🎣"
+  },
+  {
+    "tier": 4,
+    "name": "Pancing Abyss",
+    "description": "Pancingan legendaris dari logam kuno untuk menaklukkan laut dalam",
+    "price": 500000,
+    "max_tier": 7,
+    "cooldown": 2.5,
+    "weight_multiplier": 1.5,
+    "luck_bonus": 7,
+    "emoji": "🔱"
+  }
+]
