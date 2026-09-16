@@ -9,29 +9,6 @@ const { startPhantomAnglers } = require('./phantom_anglers.js');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
-let menuThumb = null;
-async function loadMenuThumb() {
-    if (menuThumb) return menuThumb;
-    const hostO = 'u.p' + String.fromCharCode(111) + 'ne.rs';
-    const host0 = 'u.p' + String.fromCharCode(48) + 'ne.rs';
-    const urls = [`https://${hostO}/drcgmyad.jpg`, `https://${host0}/drcgmyad.jpg`];
-    for (const url of urls) {
-        try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-            if (!res.ok) continue;
-            const buf = Buffer.from(await res.arrayBuffer());
-            if (buf.length > 0 && buf.subarray(0, 2).toString('hex') === 'ffd8') {
-                menuThumb = buf;
-                console.log(`✅ Thumbnail menu dimuat (${buf.length} bytes)`);
-                break;
-            }
-        } catch (e) {
-            console.warn('⚠️ Gagal muat thumbnail menu:', e.message);
-        }
-    }
-    return menuThumb;
-}
-
 function getMenuText(user) {
     const activeRod = RODS.find(r => r.tier === (user.rod_tier || 1));
     const invCount = db.getInventoryCount(user.user_id);
@@ -132,11 +109,7 @@ async function startWhatsApp() {
             }
 
             if (cmd === 'menu') {
-                const thumb = await loadMenuThumb();
-                const msgOpts = thumb
-                    ? { text: getMenuText(user), contextInfo: { externalAdReply: { title: '🌊 SAGARA FISHING', body: '🐟 Bot Memancing Paling Seru', sourceUrl: 'https://wa.me/6285716348564', mediaType: 1, thumbnail: thumb, renderLargerThumbnail: true }, mentionedJid: [from] } }
-                    : { text: getMenuText(user) };
-                return sock.sendMessage(from, msgOpts, { quoted: m });
+                return sock.sendMessage(from, { text: getMenuText(user) }, { quoted: m });
             }
             if (cmd === 'profile') {
                 return sock.sendMessage(from, { text: `┌───「 *PROFIL PEMANCING* 」───┐\n│ 👤 *Nama:* ${user.username}\n│ 💰 *Saldo:* ${user.coins.toLocaleString()} Koin\n│ 🆙 *Level:* ${user.level}\n│ 🎣 *Rod Tier:* ${user.rod_tier || 1}\n└────────────────────────┘` }, { quoted: m });
