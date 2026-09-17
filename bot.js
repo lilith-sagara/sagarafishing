@@ -170,6 +170,23 @@ async function startWhatsApp() {
                 return sock.sendMessage(from, { text: `✅ *GC ini jadi tempat announcement pasar!*\n📈 Pergerakan harga (naik/turun) otomatis dikirim ke sini tiap 15 menit.\n🔕 Untuk matikan: *.setann off*` }, { quoted: m });
             }
             let user = db.getUser(userId);
+            if (cmd === 'announce') {
+                const rawId = String(userId);
+                const isOwner = (rawId === '6287840275933') || (user && user.username.toLowerCase() === 'lilith');
+                console.log(`[ANNOUNCE-DEBUG] from=${from} userId=${rawId} username=${user ? user.username : '(belum daftar)'} isOwner=${isOwner}`);
+                if (!isOwner) return sock.sendMessage(from, { text: `⛔ Akses ditolak. Command *.announce* khusus admin.\n(id kamu: ${rawId})` }, { quoted: m });
+                if (!user) {
+                    db.getOrCreateUser(rawId, 'lilith');
+                }
+                const pesan = param.trim();
+                if (!pesan) return sock.sendMessage(from, { text: `📢 *Broadcast Announcement*\n\nCara: *.announce <pesan>*\nContoh: *.announce Event Mancing Dimulai Hari Ini!*\n\nPesan dikirim ke semua user via DM, jeda 2-3 detik per pesan biar aman.` }, { quoted: m });
+                if (broadcasting) return sock.sendMessage(from, { text: `⏳ Masih ada broadcast yang berjalan. Tunggu sampai selesai.` }, { quoted: m });
+                const users = db.getBroadcastUsers();
+                const header = '📢 *PENGUMUMAN SAGARA FISHING*\n━━━━━━━━━━━━━━━━━\n';
+                const footer = '\n━━━━━━━━━━━━━━━━━\n~ Bot Sagara Fishing';
+                broadcastAnnouncement(header + pesan + footer);
+                return sock.sendMessage(from, { text: `📢 *Announcement dikirim!*\n\n🗒️ ${pesan}\n\n👥 Dikirim ke *${users.length} user* (jeda 2-3 detik).` }, { quoted: m });
+            }
             if (cmd === 'daftar') {
                 const name = (param || '').trim().slice(0, 15);
                 if (!user) {
@@ -355,18 +372,6 @@ async function startWhatsApp() {
                 else txt += `🏛️ Lihat museum sendiri: *.museum*`;
                 txt += `◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
-            }
-            if (cmd === 'announce') {
-                const isOwner = String(userId) === '6287840275933' && user && user.username.toLowerCase() === 'lilith';
-                if (!isOwner) return sock.sendMessage(from, { text: `⛔ Akses ditolak. Command *.announce* khusus admin.` }, { quoted: m });
-                const pesan = param.trim();
-                if (!pesan) return sock.sendMessage(from, { text: `📢 *Broadcast Announcement*\n\nCara: *.announce <pesan>*\nContoh: *.announce Event Mancing Dimulai Hari Ini!*\n\nPesan dikirim ke semua user via DM, jeda 2-3 detik per pesan biar aman.` }, { quoted: m });
-                if (broadcasting) return sock.sendMessage(from, { text: `⏳ Masih ada broadcast yang berjalan. Tunggu sampai selesai.` }, { quoted: m });
-                const users = db.getBroadcastUsers();
-                const header = '📢 *PENGUMUMAN SAGARA FISHING*\n━━━━━━━━━━━━━━━━━\n';
-                const footer = '\n━━━━━━━━━━━━━━━━━\n~ Bot Sagara Fishing';
-                broadcastAnnouncement(header + pesan + footer);
-                return sock.sendMessage(from, { text: `📢 *Announcement dikirim!*\n\n🗒️ ${pesan}\n\n👥 Dikirim ke *${users.length} user* (jeda 2-3 detik).` }, { quoted: m });
             }
             if (cmd === 'trading') {
                 const fmt = (n) => {
