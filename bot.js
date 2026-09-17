@@ -300,7 +300,18 @@ async function startWhatsApp() {
                 let txt = `┌───「 📈 PASAR TRADING 」───┐\n`;
                 txt += `│ 💰 Tunai : ${fmt(user.coins)} Koin\n`;
                 txt += `│ 💎 Aset  : ${fmt(assetValue)} Koin   (${myAssets.length} jenis)\n`;
-                txt += `├────────────────────────────┤\n`;
+                txt += `├──── 💼 PORTFOLIO KAMU ──────┤\n`;
+                if (myAssets.length === 0) {
+                    txt += `│ (Kosong — coba: .trading beli BTC 1)\n`;
+                } else {
+                    myAssets.forEach(a => {
+                        const p = prices.find(x => x.symbol === a.symbol);
+                        const dot = p && p.changePct > 0 ? '🟢' : p && p.changePct < 0 ? '🔴' : '⚪';
+                        txt += `│ ${dot} *${a.name}* (${a.symbol})\n`;
+                        txt += `│    ${a.amount} unit = ${fmt(a.value)} Koin\n`;
+                    });
+                }
+                txt += `├────── 📊 HARGA PASAR ──────┤\n`;
                 const groups = ['Mata Uang', 'Kripto'];
                 groups.forEach(g => {
                     const list = prices.filter(p => p.type === g);
