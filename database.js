@@ -474,6 +474,28 @@ const database = {
         
         return { fishName: fish.name, price };
     },
+
+    sellFishByName: (userId, fishName) => {
+        const name = String(fishName || '').trim();
+        if (!name) return { ok: false, count: 0, total: 0 };
+        const items = db.prepare(`
+            SELECT i.id, i.weight, f.name, f.price_per_kg
+            FROM inventory i
+            JOIN fish f ON i.fish_id = f.id
+            WHERE i.user_id = ? AND i.sold = 0 AND LOWER(f.name) LIKE ?
+        `).all(userId, `%${name.toLowerCase()}%`);
+        if (items.length === 0) return { ok: false, count: 0, total: 0 };
+        let total = 0;
+        const tx = db.transaction(() => {
+            items.forEach(it => {
+                total += Math.floor(it.weight * it.price_per_kg);
+                db.prepare('UPDATE inventory SET sold = 1 WHERE id = ?').run(it.id);
+            });
+            db.prepare('UPDATE users SET coins = coins + ? WHERE user_id = ?').run(total, userId);
+        });
+        tx();
+        return { ok: true, count: items.length, total, names: [...new Set(items.map(i => i.name))] };
+    },
     
     getLeaderboard: (limit = 10) => {
         ensureTradingData();

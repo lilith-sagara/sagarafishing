@@ -420,7 +420,7 @@ async function startWhatsApp() {
                 else inv.items.forEach((it, i) => txt += `│ ${(page - 1) * perPage + i + 1}. ${it.emoji} *${it.name}* (${it.weight}kg) | [ID: ${it.id}]\n`);
                 txt += `└──────────────────────────┘\n`;
                 if (totalPages > 1) txt += `📄 *Halaman ${page}/${totalPages}* dari total ${total} ikan.\n💡 Halaman berikutnya: *.inventory${page + 1}*\n`;
-                txt += `💡 *Pakai:* .jual <id> | .jual semua`;
+                txt += `💡 *Pakai:* .jual <id> | .jual semua | .jualjenisikan <nama>`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
             }
             if (cmd === 'jual') {
@@ -433,6 +433,14 @@ async function startWhatsApp() {
                 else if (param === 'legend') inv.items.filter(it => it.tier >= 7).forEach(it => { const r = db.sellFish(userId, it.id); if (r) { soldCount++; totalCoins += r.price; }});
                 else { const res = db.sellFish(userId, parseInt(param)); if (res) { soldCount = 1; totalCoins = res.price; } }
                 return sock.sendMessage(from, { text: soldCount > 0 ? `✅ Berhasil jual *${soldCount}* ikan senilai *${totalCoins.toLocaleString()} Koin*!` : `❌ Ikan tidak ditemukan.` }, { quoted: m });
+            }
+            if (cmd === 'jualjenisikan' || (cmd === 'jualjenis' && (args[1] || '') === 'ikan')) {
+                const n = (cmd === 'jualjenisikan' ? param : args.slice(2).join(' ')).trim();
+                if (!n) return sock.sendMessage(from, { text: `💡 *Jual semua ikan sejenis:*\n\n*.jualjenisikan <nama ikan>*\nContoh: *.jualjenisikan lele*\n\nSemua ikan bernama *lele* di inventory kamu akan terjual.` }, { quoted: m });
+                const r = db.sellFishByName(userId, n);
+                if (!r.ok) return sock.sendMessage(from, { text: `❌ Ikan yang kamu cari *${n}* tidak ada di inventory kamu.\nCek daftar ikanmu: *.inventory*` }, { quoted: m });
+                const namaTampil = r.names.join(', ');
+                return sock.sendMessage(from, { text: `✅ Terjual *${r.count} ekor* ikan *${namaTampil}*!\n💰 Total: +${r.total.toLocaleString()} Koin` }, { quoted: m });
             }
             if (cmd === 'mancing') {
                 const boostMs = db.getCooldownBoostMs(userId);
