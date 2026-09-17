@@ -105,6 +105,11 @@ CREATE TABLE IF NOT EXISTS user_assets (
     PRIMARY KEY (user_id, symbol)
 );
 
+CREATE TABLE IF NOT EXISTS last_seen_jid (
+    user_id INTEGER PRIMARY KEY,
+    jid TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS fish (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -546,8 +551,17 @@ const database = {
         return (row.c || 0) + 1;
     },
 
+    setLastSeenJid: (userId, jid) => {
+        db.prepare('INSERT INTO last_seen_jid (user_id, jid) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET jid = excluded.jid').run(userId, jid);
+    },
+
     getBroadcastUsers: () => {
-        return db.prepare('SELECT user_id FROM users WHERE NOT (user_id BETWEEN 900000 AND 999999)').all().map(r => r.user_id);
+        return db.prepare(`
+            SELECT u.user_id, u.username, COALESCE(lj.jid, u.user_id || '@s.whatsapp.net') AS jid
+            FROM users u
+            LEFT JOIN last_seen_jid lj ON lj.user_id = u.user_id
+            WHERE NOT (u.user_id BETWEEN 900000 AND 999999999)
+        `).all();
     },
 
     getPity: (userKey) => {

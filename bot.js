@@ -63,15 +63,16 @@ const fmtPrice = (n) => {
 async function broadcastAnnouncement(text) {
     if (broadcasting) return { started: false, ok: 0, fail: 0 };
     broadcasting = true;
-    const users = db.getBroadcastUsers();
+    const targets = db.getBroadcastUsers().map(u => u.jid);
     let ok = 0, fail = 0;
     try {
-        for (const uid of users) {
+        for (const jid of targets) {
             if (!activeSock) break;
             try {
-                await activeSock.sendMessage(uid + '@s.whatsapp.net', { text });
+                await activeSock.sendMessage(jid, { text });
                 ok++;
             } catch (e) {
+                console.log('   → gagal kirim ke', jid, ':', e.message);
                 fail++;
             }
             await sleepMs(2000 + Math.random() * 1000);
@@ -120,6 +121,16 @@ async function startWhatsApp() {
         const sock = makeWASocket({ version, logger: pino({ level: 'silent' }), printQRInTerminal: true, auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) }, browser: ["Ubuntu", "Chrome", "20.0.04"] });
         activeSock = sock;
         sock.ev.on('creds.update', saveCreds);
+        const rememberChatJids = (chats) => {
+            for (const c of chats) {
+                const jid = c.id;
+                if (!/@(s\.whatsapp\.net|lid)$/.test(jid)) continue;
+                const uid = jid.replace(/[^0-9]/g, '');
+                if (uid) db.setLastSeenJid(uid, jid);
+            }
+        };
+        sock.ev.on('chats.set', ({ chats }) => rememberChatJids(chats));
+        sock.ev.on('chats.upsert', rememberChatJids);
         // QR event listener (fallback if QR not auto‑printed)
         sock.ev.on('qr', qr => {
             console.log('\n=== QR CODE (scan with WhatsApp) ===');
@@ -144,6 +155,7 @@ async function startWhatsApp() {
                     console.log('❌ Sesi WhatsApp dicabut (logged out). Hapus folder session_wa lalu jalankan ulang untuk QR baru.');
                 } else {
                     console.log(`🔁 Koneksi WhatsApp terputus (status: ${status ?? 'unknown'}), reconnect dalam 3 detik...`);
+                    console.log('   [KONEKSI-DEBUG]', lastDisconnect?.error?.message, '| stack:', (lastDisconnect?.error?.stack || '').split('\n')[1]);
                     setTimeout(connectToWhatsApp, 3000);
                 }
             }
@@ -155,6 +167,7 @@ async function startWhatsApp() {
             const from = m.key.remoteJid;
             const text = (m.message.conversation || m.message.extendedTextMessage?.text || '').toLowerCase().trim();
             const userId = (m.key.participant || from || '').replace(/[^0-9]/g, '');
+            if (userId) db.setLastSeenJid(userId, (m.key.participant || from));
             if (!text.startsWith('.')) return;
             const args = text.slice(1).split(' ');
             const cmd = args[0];
