@@ -41,10 +41,46 @@ function getMenuText(user) {
 ╭╮ 🧰 LAIN-LAIN
 ││ ▸ .beli   .belilevel   .belipulau
 ││ ▸ .activator   .cooldown   .profile
-││ ▸ .rank   .daftar
+││ ▸ .rank   .setann   .daftar
 ╰╯
 
 ♪ Selamat mancing-mancing, Nak! 🐙`;
+}
+
+let activeSock = null;
+
+const fmtPrice = (n) => {
+    if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T';
+    if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M';
+    if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Jt';
+    return Math.round(n).toLocaleString();
+};
+
+// Announcement otomatis setiap harga market di-roll (±15% tiap 15 mnt)
+async function announcePriceUpdates() {
+    try {
+        const moves = db.rollPrices();
+        if (!moves || moves.length === 0) return;
+        const target = db.getAnnounceTarget();
+        if (!target || !activeSock) return;
+        const sorted = [...moves].sort((a, b) => b.pct - a.pct);
+        const ups = sorted.filter(m => m.pct > 0);
+        const downs = sorted.filter(m => m.pct < 0);
+        let txt = `📈 *UPDATE PASAR SAGARA!*\nHarga aset naik/turun otomatis tiap 15 menit!\n\n`;
+        if (ups.length > 0) {
+            txt += `🟢 *Yang Naik:*\n`;
+            ups.slice(0, 3).forEach(m => txt += `   ${m.symbol} ${m.name}  +${m.pct}% → ${fmtPrice(m.to)}\n`);
+        }
+        if (downs.length > 0) {
+            txt += `\n🔴 *Yang Turun:*\n`;
+            downs.slice(0, 3).forEach(m => txt += `   ${m.symbol} ${m.name}  ${m.pct}% → ${fmtPrice(m.to)}\n`);
+        }
+        txt += `\n📊 Ayo cek semua harga & jual-beli: *.trading*`;
+        await activeSock.sendMessage(target, { text: txt });
+        console.log(`📢 Announcement pasar dikirim ke ${target}`);
+    } catch (e) {
+        console.warn('⚠️ Gagal kirim announcement pasar:', e.message);
+    }
 }
 
 async function startWhatsApp() {
@@ -54,6 +90,7 @@ async function startWhatsApp() {
 
     async function connectToWhatsApp() {
         const sock = makeWASocket({ version, logger: pino({ level: 'silent' }), printQRInTerminal: true, auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'silent' })) }, browser: ["Ubuntu", "Chrome", "20.0.04"] });
+        activeSock = sock;
         sock.ev.on('creds.update', saveCreds);
         // QR event listener (fallback if QR not auto‑printed)
         sock.ev.on('qr', qr => {
@@ -94,6 +131,16 @@ async function startWhatsApp() {
             const args = text.slice(1).split(' ');
             const cmd = args[0];
             const param = args.slice(1).join(' ');
+            if (cmd === 'setann') {
+                const isOff = (args[1] || '').toLowerCase() === 'off';
+                if (isOff) {
+                    db.clearAnnounceTarget();
+                    return sock.sendMessage(from, { text: `🔕 Announcement pasar dimatikan. Untuk menyalakan ulang, ketik *.setann* di grup tujuan.` }, { quoted: m });
+                }
+                if (!from.endsWith('@g.us')) return sock.sendMessage(from, { text: `📌 *Set Announcement Pasar*\n\nJalankan perintah *.setann* *di dalam grup* yang mau dijadikan tempat pengumuman naik/turun harga (update tiap 15 menit).\n\n• Nyalakan: ketik *.setann* di grup itu\n• Matikan: *.setann off*\n\n💡 Bot otomatis mendeteksi ID grup dari chat tempat kamu mengetik perintah ini.` }, { quoted: m });
+                db.setAnnounceTarget(from);
+                return sock.sendMessage(from, { text: `✅ *GC ini jadi tempat announcement pasar!*\n📈 Pergerakan harga (naik/turun) otomatis dikirim ke sini tiap 15 menit.\n🔕 Untuk matikan: *.setann off*` }, { quoted: m });
+            }
             let user = db.getUser(userId);
             if (cmd === 'daftar') {
                 const name = (param || '').trim().slice(0, 15);
@@ -442,5 +489,6 @@ async function startWhatsApp() {
     await connectToWhatsApp();
 }
 startWhatsApp();
+setInterval(announcePriceUpdates, 20000);
 startPhantomAnglers();
 console.log('🤖 Bot Sagara Fishing Running');

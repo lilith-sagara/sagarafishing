@@ -1,8 +1,10 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 const dbPath = path.join(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
+const ANNOUNCE_FILE = path.join(__dirname, 'announce_target.json');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
@@ -167,21 +169,45 @@ function ensureTradingData() {
 }
 
 function updateAssetPricesIfDue() {
+    return rollTradingPrices() !== null;
+}
+
+function rollTradingPrices() {
     ensureTradingData();
     const first = db.prepare('SELECT updated_at FROM asset_prices ORDER BY rowid LIMIT 1').get();
-    if (first && Date.now() - first.updated_at < TRADING_INTERVAL_MS) return false;
-    const rows = db.prepare('SELECT symbol, price FROM asset_prices').all();
+    if (first && Date.now() - first.updated_at < TRADING_INTERVAL_MS) return null;
+    const rows = db.prepare('SELECT symbol, name, type, price FROM asset_prices').all();
     const now = Date.now();
     const up = db.prepare('UPDATE asset_prices SET prev_price = ?, price = ?, updated_at = ? WHERE symbol = ?');
+    const moves = [];
     const tx = db.transaction(() => {
         rows.forEach(r => {
             const change = Math.random() * 0.30 - 0.15;
             const next = Math.max(1, Math.round(r.price * (1 + change) * 100) / 100);
+            const pct = Math.round((next / r.price - 1) * 1000) / 10;
             up.run(r.price, next, now, r.symbol);
+            moves.push({ symbol: r.symbol, name: r.name, type: r.type, from: r.price, to: next, pct });
         });
     });
     tx();
-    return true;
+    return moves;
+}
+
+function getAnnounceTarget() {
+    try {
+        const j = JSON.parse(fs.readFileSync(ANNOUNCE_FILE, 'utf8'));
+        return j && j.jid ? j.jid : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function setAnnounceTarget(jid) {
+    fs.writeFileSync(ANNOUNCE_FILE, JSON.stringify({ jid, updated: Date.now() }));
+}
+
+function clearAnnounceTarget() {
+    try { fs.unlinkSync(ANNOUNCE_FILE); } catch (e) { /* tidak ada file */ }
 }
 
 function getLivePrices() {
@@ -541,6 +567,18 @@ const database = {
     },
 
     // TRADING SYSTEM: beli/jual aset (kripto & mata uang)
+    getAssetPrice: (symbol) => {
+        ensureTradingData();
+        updateAssetPricesIfDue();
+        return db.prepare('SELECT * FROM asset_prices WHERE symbol = ?').get(String(symbol).toUpperCase());
+    },
+
+    // TRADING ANNOUNCEMENT
+    rollPrices: () => rollTradingPrices(),
+    getAnnounceTarget: () => getAnnounceTarget(),
+    setAnnounceTarget: (jid) => setAnnounceTarget(jid),
+    clearAnnounceTarget: () => clearAnnounceTarget(),
+
     getAssetPrices: () => getLivePrices(),
 
     getUserAssets: (userId) => getUserAssetsRows(userId),
