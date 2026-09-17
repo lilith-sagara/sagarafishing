@@ -117,7 +117,16 @@ async function startWhatsApp() {
             if (cmd === 'profile') {
                 const assetVal = db.getAssetValue(userId);
                 const totalNet = user.coins + assetVal;
-                return sock.sendMessage(from, { text: `┌───「 *PROFIL PEMANCING* 」───┐\n│ 👤 *Nama:* ${user.username}\n│ 💰 *Tunai:* ${user.coins.toLocaleString()} Koin\n│ 💎 *Aset:* ${assetVal.toLocaleString()} Koin\n│ 📊 *Total Harta:* ${totalNet.toLocaleString()} Koin\n│ 🆙 *Level:* ${user.level}\n│ 🎣 *Rod Tier:* ${user.rod_tier || 1}\n└────────────────────────┘\n💡 Pelajari pasar: *.trading*` }, { quoted: m });
+                const myAssets = db.getAssetValue ? db.getUserAssets(userId) : [];
+                let txt = `┌───「 *PROFIL PEMANCING* 」───┐\n│ 👤 *Nama:* ${user.username}\n│ 💰 *Tunai:* ${user.coins.toLocaleString()} Koin\n│ 💎 *Aset:* ${assetVal.toLocaleString()} Koin\n│ 📊 *Total Harta:* ${totalNet.toLocaleString()} Koin\n│ 🆙 *Level:* ${user.level}\n│ 🎣 *Rod Tier:* ${user.rod_tier || 1}\n└────────────────────────┘\n`;
+                if (myAssets.length > 0) {
+                    const fmtA = (n) => { if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T'; if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M'; if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Jt'; return Math.round(n).toLocaleString(); };
+                    txt += `┌───「 💼 ASET KAMU 」───┐\n`;
+                    myAssets.forEach(a => txt += `│ 🎯 *${a.name}*\n│    (${a.symbol}) ${a.amount} unit = ${fmtA(a.value)} Koin\n`);
+                    txt += `└────────────────────┘\n`;
+                }
+                txt += `💡 Pelajari pasar: *.trading*`;
+                return sock.sendMessage(from, { text: txt }, { quoted: m });
             }
             if (cmd === 'setpancingan') {
                 const owned = db.getUserRods(userId);
