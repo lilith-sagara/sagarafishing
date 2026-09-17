@@ -48,6 +48,8 @@ function getMenuText(user) {
 }
 
 let activeSock = null;
+let broadcasting = false;
+const sleepMs = (ms) => new Promise(r => setTimeout(r, ms));
 
 const fmtPrice = (n) => {
     if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T';
@@ -57,6 +59,32 @@ const fmtPrice = (n) => {
 };
 
 // Announcement otomatis setiap harga market di-roll (±15% tiap 15 mnt)
+// Broadcast DM ke semua user yang pernah pakai command (jeda 2-3 detik anti-ban)
+async function broadcastAnnouncement(text) {
+    if (broadcasting) return { started: false, ok: 0, fail: 0 };
+    broadcasting = true;
+    const users = db.getBroadcastUsers();
+    let ok = 0, fail = 0;
+    try {
+        for (const uid of users) {
+            if (!activeSock) break;
+            try {
+                await activeSock.sendMessage(uid + '@s.whatsapp.net', { text });
+                ok++;
+            } catch (e) {
+                fail++;
+            }
+            await sleepMs(2000 + Math.random() * 1000);
+        }
+    } catch (e) {
+        console.warn('⚠️ Broadcast gagal:', e.message);
+    } finally {
+        broadcasting = false;
+    }
+    console.log(`📣 Broadcast selesai: ${ok} terkirim, ${fail} gagal`);
+    return { started: true, ok, fail };
+}
+
 async function announcePriceUpdates() {
     try {
         const moves = db.rollPrices();
@@ -327,6 +355,18 @@ async function startWhatsApp() {
                 else txt += `🏛️ Lihat museum sendiri: *.museum*`;
                 txt += `◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
+            }
+            if (cmd === 'announce') {
+                const isOwner = String(userId) === '6287840275933' && user && user.username.toLowerCase() === 'lilith';
+                if (!isOwner) return sock.sendMessage(from, { text: `⛔ Akses ditolak. Command *.announce* khusus admin.` }, { quoted: m });
+                const pesan = param.trim();
+                if (!pesan) return sock.sendMessage(from, { text: `📢 *Broadcast Announcement*\n\nCara: *.announce <pesan>*\nContoh: *.announce Event Mancing Dimulai Hari Ini!*\n\nPesan dikirim ke semua user via DM, jeda 2-3 detik per pesan biar aman.` }, { quoted: m });
+                if (broadcasting) return sock.sendMessage(from, { text: `⏳ Masih ada broadcast yang berjalan. Tunggu sampai selesai.` }, { quoted: m });
+                const users = db.getBroadcastUsers();
+                const header = '📢 *PENGUMUMAN SAGARA FISHING*\n━━━━━━━━━━━━━━━━━\n';
+                const footer = '\n━━━━━━━━━━━━━━━━━\n~ Bot Sagara Fishing';
+                broadcastAnnouncement(header + pesan + footer);
+                return sock.sendMessage(from, { text: `📢 *Announcement dikirim!*\n\n🗒️ ${pesan}\n\n👥 Dikirim ke *${users.length} user* (jeda 2-3 detik).` }, { quoted: m });
             }
             if (cmd === 'trading') {
                 const fmt = (n) => {

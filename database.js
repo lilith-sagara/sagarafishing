@@ -546,6 +546,10 @@ const database = {
         return (row.c || 0) + 1;
     },
 
+    getBroadcastUsers: () => {
+        return db.prepare('SELECT user_id FROM users WHERE NOT (user_id BETWEEN 900000 AND 999999)').all().map(r => r.user_id);
+    },
+
     getPity: (userKey) => {
         const row = db.prepare('SELECT pity_count FROM gacha_pity WHERE user_key = ?').get(String(userKey));
         return row ? row.pity_count : 0;
