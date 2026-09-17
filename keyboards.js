@@ -34,8 +34,8 @@ const RODS = [
     { tier: 22, name: '👑 Neptune’s Royal Scepter', price: 150000000, max_tier: 7, cooldown: 1.4, luck_bonus: 1500, description: 'Tongkat kekuasaan raja samudera.', tier_label: 'TRANSCENDENCE' },
     { tier: 23, name: '🌙 Celestial Moon-Thread', price: 300000000, max_tier: 7, cooldown: 1.3, luck_bonus: 2500, description: 'Senar dari benang cahaya bulan.', tier_label: 'TRANSCENDENCE' },
     { tier: 24, name: '🦴 Tide-God’s Spine', price: 600000000, max_tier: 7, cooldown: 1.2, luck_bonus: 4000, description: 'Terbuat dari tulang belakang Dewa Pasang.', tier_label: 'TRANSCENDENCE' },
-    { tier: 25, name: '🌌 Galactic Star-Line', price: 1000000000, max_tier: 7, cooldown: 1.1, luck_bonus: 7500, description: 'Memancing menembus dimensi bintang.', tier_label: 'TRANSCENDENCE' },
-    { tier: 26, name: '💎 Final Sagara’s Blessing', price: 2500000000, max_tier: 7, cooldown: 1.0, luck_bonus: 15000, description: 'Berkat tertinggi dari Sagara.', tier_label: 'TRANSCENDENCE' },
+    { tier: 25, name: '🌌 Galactic Star-Line', price: 1000000000, max_tier: 7, cooldown: 1.1, luck_bonus: 4500, description: 'Memancing menembus dimensi bintang.', tier_label: 'TRANSCENDENCE' },
+    { tier: 26, name: '💎 Final Sagara’s Blessing', price: 2500000000, max_tier: 7, cooldown: 1.0, luck_bonus: 5000, description: 'Berkat tertinggi dari Sagara.', tier_label: 'TRANSCENDENCE' },
 
     // TIER 36: GACHA 2 - DEMON VS GOD (LATIN)
     { tier: 36, name: '🔥 Ignis Inferni (Api Neraka)', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 1500, description: 'Pancingan bertemakan pemberontakan iblis.', tier_label: 'INFERNUS' },
@@ -43,12 +43,12 @@ const RODS = [
     { tier: 36, name: '⚖️ Armageddon Diaboli (Kiamat Setan)', price: 0, max_tier: 11, cooldown: 0.4, luck_bonus: 1500, description: 'Artefak benturan abadi antara surga dan neraka.', tier_label: 'APOCALYPSE' },
 
     // TIER 35: THE SKY (GACHA 1)
-    { tier: 35, name: '⛅ Sky-Piercer Needle', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 35000, description: 'Jarum yang menembus lapisan langit tertinggi.', tier_label: 'THE SKY' },
-    { tier: 36, name: '☁️ Cloud-Weaver Pole', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 35000, description: 'Pancingan yang ditenun dari awan abadi.', tier_label: 'THE SKY' },
-    { tier: 37, name: '🔱 Spittle Diaboli (Ludah Setan)', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 35000, description: 'Pancingan terkutuk dari air liur iblis langit.', tier_label: 'THE SKY' },
+    { tier: 35, name: '⛅ Sky-Piercer Needle', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 5000, description: 'Jarum yang menembus lapisan langit tertinggi.', tier_label: 'THE SKY' },
+    { tier: 36, name: '☁️ Cloud-Weaver Pole', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 5000, description: 'Pancingan yang ditenun dari awan abadi.', tier_label: 'THE SKY' },
+    { tier: 37, name: '🔱 Spittle Diaboli (Ludah Setan)', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 5000, description: 'Pancingan terkutuk dari air liur iblis langit.', tier_label: 'THE SKY' },
 
     // TIER 36: FALLEN ANGEL
-    { tier: 36, name: '🖤 Lilith the Last Rods', price: 500000000000000, max_tier: 11, cooldown: 0.3, luck_bonus: 50000, description: 'Pancingan legendaris berbalut kekuatan sang Malaikat Jatuh.', tier_label: 'FALLEN ANGEL' }
+    { tier: 36, name: '🖤 Lilith the Last Rods', price: 500000000000000, max_tier: 11, cooldown: 0.3, luck_bonus: 5000, description: 'Pancingan legendaris berbalut kekuatan sang Malaikat Jatuh.', tier_label: 'FALLEN ANGEL' }
 ];
 
 function getMainMenuKeyboard() {
