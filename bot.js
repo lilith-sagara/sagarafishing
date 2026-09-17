@@ -291,14 +291,14 @@ async function startWhatsApp() {
                 const sub = args[1];
                 const sym = String(args[2] || '').toUpperCase();
                 if (sub === 'beli') {
-                    const qty = Math.floor(parseFloat(args[3]));
+                    const qty = args[3] === undefined ? 1 : Math.floor(parseFloat(args[3]));
                     const r = db.buyAsset(userId, sym, qty);
                     if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
                     return sock.sendMessage(from, { text: `💹 *BELI ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 Total: -${r.total.toLocaleString()} Koin (${r.price.toLocaleString()}/unit)\n💰 Sisa saldo: ${(user.coins - r.total).toLocaleString()} Koin` }, { quoted: m });
                 }
                 if (sub === 'jual') {
                     const all = (args[3] || '').toLowerCase() === 'semua';
-                    const qty = all ? Infinity : Math.floor(parseFloat(args[3]));
+                    const qty = args[3] === undefined ? 1 : (all ? Infinity : Math.floor(parseFloat(args[3])));
                     const r = db.sellAsset(userId, sym, qty);
                     if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
                     return sock.sendMessage(from, { text: `💹 *JUAL ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 +${r.total.toLocaleString()} Koin (${r.price.toLocaleString()}/unit)` }, { quoted: m });
@@ -334,7 +334,7 @@ async function startWhatsApp() {
                 });
                 txt += `├────────────────────────────┤\n`;
                 txt += `│ 📝 Harga otomatis berubah tiap *15 menit* (naik/turun ±15%)\n`;
-                txt += `│ 💡 Beli: .trading beli BTC 5\n│ 💡 Jual: .trading jual BTC 5 | BTC semua\n`;
+                txt += `│ 💡 Beli: .trading beli BTC 5 (tanpa angka = 1)\n│ 💡 Jual: .trading jual BTC 5 | BTC semua\n`;
                 txt += `└────────────────────────────┘`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
             }
