@@ -12,6 +12,7 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 function getMenuText(user) {
     const activeRod = RODS.find(r => r.tier === (user.rod_tier || 1));
     const invCount = db.getInventoryCount(user.user_id);
+    const assetVal = db.getAssetValue(user.user_id);
     return `╭━─━─━─━─━─━─━─━─━─━─━─━─━╮
 ║       🌊 *S A G A R A* 🌊       ║
 ║   🐟 *F I S H I N G   B O T*   ║
@@ -21,6 +22,7 @@ function getMenuText(user) {
 ╭╮ 🔍 INFO PEMANCING
 ││ 🧑 Nama      : *${user.username}*
 ││ 💰 Koin      : ${user.coins.toLocaleString()}
+││ 💎 Aset      : ${assetVal.toLocaleString()}
 ││ 🆙 Level     : ${user.level}
 ││ 🎣 Pancingan : ${activeRod?.name || 'Rod Tier ' + (user.rod_tier || 1)}
 ││ 🎒 Ikan      : ${invCount} ekor
@@ -28,6 +30,7 @@ function getMenuText(user) {
 
 ╭╮ 🎣 FITUR UTAMA
 ││ ▸ .mancing          Langsung mancing!
+││ ▸ .trading          Beli/jual saham & kripto
 ││ ▸ .setpancingan     Atur pancingan aktif
 ││ ▸ .inventory        Lihat simpanan ikan
 ││ ▸ .museum           Pamer & jual koleksi
@@ -112,7 +115,9 @@ async function startWhatsApp() {
                 return sock.sendMessage(from, { text: getMenuText(user) }, { quoted: m });
             }
             if (cmd === 'profile') {
-                return sock.sendMessage(from, { text: `┌───「 *PROFIL PEMANCING* 」───┐\n│ 👤 *Nama:* ${user.username}\n│ 💰 *Saldo:* ${user.coins.toLocaleString()} Koin\n│ 🆙 *Level:* ${user.level}\n│ 🎣 *Rod Tier:* ${user.rod_tier || 1}\n└────────────────────────┘` }, { quoted: m });
+                const assetVal = db.getAssetValue(userId);
+                const totalNet = user.coins + assetVal;
+                return sock.sendMessage(from, { text: `┌───「 *PROFIL PEMANCING* 」───┐\n│ 👤 *Nama:* ${user.username}\n│ 💰 *Tunai:* ${user.coins.toLocaleString()} Koin\n│ 💎 *Aset:* ${assetVal.toLocaleString()} Koin\n│ 📊 *Total Harta:* ${totalNet.toLocaleString()} Koin\n│ 🆙 *Level:* ${user.level}\n│ 🎣 *Rod Tier:* ${user.rod_tier || 1}\n└────────────────────────┘\n💡 Pelajari pasar: *.trading*` }, { quoted: m });
             }
             if (cmd === 'setpancingan') {
                 const owned = db.getUserRods(userId);
@@ -204,7 +209,8 @@ async function startWhatsApp() {
                 top.forEach((u, i) => {
                     const medal = medals[i] || `#${i + 1}`;
                     txt += `│ ${medal} *${u.username}*\n`;
-                    txt += `│    💰 ${fmtCoins(u.coins)}   🆙 Lv ${u.level}\n`;
+                    txt += `│    💰 ${fmtCoins(u.coins + u.asset_value)}   🆙 Lv ${u.level}\n`;
+                    txt += `│    💵 ${fmtCoins(u.coins)} + 💎 ${fmtCoins(u.asset_value)}\n`;
                     txt += `│    🎣 Rod T${u.rod_tier}   🐟 ${u.total_catches.toLocaleString()}\n`;
                     txt += `├───────────────────────────────┤\n`;
                 });
@@ -264,6 +270,52 @@ async function startWhatsApp() {
                 if (targetId === userId) txt += `🏛️ Atur museum:\n• *.museum pasang <id> <harga>*\n• *.museum lepas <kode>*\n`;
                 else txt += `🏛️ Lihat museum sendiri: *.museum*`;
                 txt += `◈━━━━━━━━━━━━━━━━━━━━━━━━━━━━◈`;
+                return sock.sendMessage(from, { text: txt }, { quoted: m });
+            }
+            if (cmd === 'trading') {
+                const fmt = (n) => {
+                    if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T';
+                    if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M';
+                    if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Jt';
+                    return Math.round(n).toLocaleString();
+                };
+                const sub = args[1];
+                const sym = String(args[2] || '').toUpperCase();
+                if (sub === 'beli') {
+                    const qty = Math.floor(parseFloat(args[3]));
+                    const r = db.buyAsset(userId, sym, qty);
+                    if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
+                    return sock.sendMessage(from, { text: `💹 *BELI ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 Total: -${r.total.toLocaleString()} Koin (${r.price.toLocaleString()}/unit)\n💰 Sisa saldo: ${(user.coins - r.total).toLocaleString()} Koin` }, { quoted: m });
+                }
+                if (sub === 'jual') {
+                    const all = (args[3] || '').toLowerCase() === 'semua';
+                    const qty = all ? Infinity : Math.floor(parseFloat(args[3]));
+                    const r = db.sellAsset(userId, sym, qty);
+                    if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
+                    return sock.sendMessage(from, { text: `💹 *JUAL ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 +${r.total.toLocaleString()} Koin (${r.price.toLocaleString()}/unit)` }, { quoted: m });
+                }
+                const prices = db.getAssetPrices();
+                const myAssets = db.getUserAssets(userId);
+                const assetValue = db.getAssetValue(userId);
+                let txt = `┌───「 📈 PASAR TRADING 」───┐\n`;
+                txt += `│ 💰 Tunai : ${fmt(user.coins)} Koin\n`;
+                txt += `│ 💎 Aset  : ${fmt(assetValue)} Koin   (${myAssets.length} jenis)\n`;
+                txt += `├────────────────────────────┤\n`;
+                const groups = ['Mata Uang', 'Kripto'];
+                groups.forEach(g => {
+                    const list = prices.filter(p => p.type === g);
+                    if (!list.length) return;
+                    txt += `│ ${g === 'Kripto' ? '🪙 KRIPTO' : '💱 MATA UANG'}\n`;
+                    list.forEach(p => {
+                        const held = myAssets.find(a => a.symbol === p.symbol);
+                        const dot = p.changePct > 0 ? '🟢' : p.changePct < 0 ? '🔴' : '⚪';
+                        txt += `│ ${dot} ${p.symbol.padEnd(4)} ${p.name.padEnd(15)} ${fmt(p.price).padStart(7)} ${(p.changePct >= 0 ? '+' : '') + p.changePct}%${held ? ` ✓x${held.amount}` : ''}\n`;
+                    });
+                });
+                txt += `├────────────────────────────┤\n`;
+                txt += `│ 📝 Harga otomatis berubah tiap *15 menit* (naik/turun ±15%)\n`;
+                txt += `│ 💡 Beli: .trading beli BTC 5\n│ 💡 Jual: .trading jual BTC 5 | BTC semua\n`;
+                txt += `└────────────────────────────┘`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
             }
             if (cmd === 'beli') {

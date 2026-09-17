@@ -87,6 +87,22 @@ CREATE TABLE IF NOT EXISTS cooldown_boosts (
     expires_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS asset_prices (
+    symbol TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    price REAL NOT NULL,
+    prev_price REAL DEFAULT 0,
+    updated_at INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS user_assets (
+    user_id INTEGER NOT NULL,
+    symbol TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, symbol)
+);
+
 CREATE TABLE IF NOT EXISTS fish (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -116,6 +132,81 @@ if (!userCols.includes('current_island_id')) {
 
 function rowToDict(row) {
     return row ? { ...row } : null;
+}
+
+// ======== TRADING SYSTEM ========
+const TRADING_INTERVAL_MS = 15 * 60 * 1000;
+const TRADING_CAP = 1e6;
+const TRADING_ASSETS = [
+    { symbol: 'BTC', name: 'Bitcoin', type: 'Kripto', base: 1000000 },
+    { symbol: 'ETH', name: 'Ethereum', type: 'Kripto', base: 320000 },
+    { symbol: 'SOL', name: 'Solana', type: 'Kripto', base: 150000 },
+    { symbol: 'BNB', name: 'Binance Coin', type: 'Kripto', base: 520000 },
+    { symbol: 'XRP', name: 'Ripple', type: 'Kripto', base: 48000 },
+    { symbol: 'DOGE', name: 'Dogecoin', type: 'Kripto', base: 26000 },
+    { symbol: 'ADA', name: 'Cardano', type: 'Kripto', base: 38000 },
+    { symbol: 'PEPE', name: 'Pepe Coin', type: 'Kripto', base: 22000 },
+    { symbol: 'USD', name: 'US Dollar', type: 'Mata Uang', base: 15000 },
+    { symbol: 'EUR', name: 'Euro', type: 'Mata Uang', base: 17500 },
+    { symbol: 'GBP', name: 'Poundsterling', type: 'Mata Uang', base: 20000 },
+    { symbol: 'JPY', name: 'Yen Jepang', type: 'Mata Uang', base: 8000 },
+    { symbol: 'AUD', name: 'Dollar Australia', type: 'Mata Uang', base: 12000 },
+    { symbol: 'MYR', name: 'Ringgit Malaysia', type: 'Mata Uang', base: 5000 },
+    { symbol: 'SGD', name: 'Dollar Singapura', type: 'Mata Uang', base: 9000 }
+];
+
+function ensureTradingData() {
+    const count = db.prepare('SELECT COUNT(*) c FROM asset_prices').get().c;
+    if (count > 0) return;
+    const now = Date.now();
+    const ins = db.prepare('INSERT INTO asset_prices (symbol, name, type, price, prev_price, updated_at) VALUES (?, ?, ?, ?, 0, ?)');
+    const tx = db.transaction(() => {
+        TRADING_ASSETS.forEach(a => ins.run(a.symbol, a.name, a.type, a.base, now));
+    });
+    tx();
+}
+
+function updateAssetPricesIfDue() {
+    ensureTradingData();
+    const first = db.prepare('SELECT updated_at FROM asset_prices ORDER BY rowid LIMIT 1').get();
+    if (first && Date.now() - first.updated_at < TRADING_INTERVAL_MS) return false;
+    const rows = db.prepare('SELECT symbol, price FROM asset_prices').all();
+    const now = Date.now();
+    const up = db.prepare('UPDATE asset_prices SET prev_price = ?, price = ?, updated_at = ? WHERE symbol = ?');
+    const tx = db.transaction(() => {
+        rows.forEach(r => {
+            const change = Math.random() * 0.30 - 0.15;
+            const next = Math.max(1, Math.round(r.price * (1 + change) * 100) / 100);
+            up.run(r.price, next, now, r.symbol);
+        });
+    });
+    tx();
+    return true;
+}
+
+function getLivePrices() {
+    ensureTradingData();
+    updateAssetPricesIfDue();
+    return db.prepare(`
+        SELECT symbol, name, type, price, prev_price, updated_at
+        FROM asset_prices
+        ORDER BY CASE type WHEN 'Mata Uang' THEN 1 ELSE 2 END, symbol
+    `).all().map(r => ({
+        ...r,
+        changePct: r.prev_price > 0 ? Math.round(((r.price / r.prev_price) - 1) * 1000) / 10 : 0
+    }));
+}
+
+function getUserAssetsRows(userId) {
+    ensureTradingData();
+    updateAssetPricesIfDue();
+    return db.prepare(`
+        SELECT ua.symbol, ua.amount, ap.name, ap.type, ap.price, ROUND(ua.amount * ap.price, 2) AS value
+        FROM user_assets ua
+        JOIN asset_prices ap ON ap.symbol = ua.symbol
+        WHERE ua.user_id = ? AND ua.amount > 0
+        ORDER BY value DESC
+    `).all(userId);
 }
 
 const database = {
@@ -359,17 +450,51 @@ const database = {
     },
     
     getLeaderboard: (limit = 10) => {
+        ensureTradingData();
+        updateAssetPricesIfDue();
         return db.prepare(`
-            SELECT username, coins, level, total_catches, rod_tier
-            FROM users
-            WHERE NOT (user_id BETWEEN 900000 AND 900011)
-            ORDER BY coins DESC
+            SELECT u.user_id, u.username, u.coins, u.level, u.total_catches, u.rod_tier,
+                COALESCE(a.asset_value, 0) AS asset_value
+            FROM users u
+            LEFT JOIN (
+                SELECT ua.user_id, SUM(ua.amount * ap.price) AS asset_value
+                FROM user_assets ua
+                JOIN asset_prices ap ON ap.symbol = ua.symbol
+                WHERE ua.amount > 0
+                GROUP BY ua.user_id
+            ) a ON a.user_id = u.user_id
+            WHERE NOT (u.user_id BETWEEN 900000 AND 900011)
+            ORDER BY (u.coins + COALESCE(a.asset_value, 0)) DESC
             LIMIT ?
         `).all(limit);
     },
 
     getUserRank: (userId) => {
-        const row = db.prepare('SELECT COUNT(*) c FROM users WHERE coins > (SELECT coins FROM users WHERE user_id = ?) AND NOT (user_id BETWEEN 900000 AND 900011)').get(userId);
+        ensureTradingData();
+        updateAssetPricesIfDue();
+        const row = db.prepare(`
+            SELECT COUNT(*) c FROM users u
+            LEFT JOIN (
+                SELECT ua.user_id, SUM(ua.amount * ap.price) AS asset_value
+                FROM user_assets ua
+                JOIN asset_prices ap ON ap.symbol = ua.symbol
+                WHERE ua.amount > 0
+                GROUP BY ua.user_id
+            ) a ON a.user_id = u.user_id
+            WHERE NOT (u.user_id BETWEEN 900000 AND 900011)
+            AND (u.coins + COALESCE(a.asset_value, 0)) > (
+                SELECT tar.coins + COALESCE(b.asset_value, 0)
+                FROM users tar
+                LEFT JOIN (
+                    SELECT ua.user_id, SUM(ua.amount * ap.price) AS asset_value
+                    FROM user_assets ua
+                    JOIN asset_prices ap ON ap.symbol = ua.symbol
+                    WHERE ua.amount > 0
+                    GROUP BY ua.user_id
+                ) b ON b.user_id = tar.user_id
+                WHERE tar.user_id = ?
+            )
+        `).get(userId);
         return (row.c || 0) + 1;
     },
 
@@ -413,6 +538,68 @@ const database = {
             return 0;
         }
         return rem;
+    },
+
+    // TRADING SYSTEM: beli/jual aset (kripto & mata uang)
+    getAssetPrices: () => getLivePrices(),
+
+    getUserAssets: (userId) => getUserAssetsRows(userId),
+
+    getAssetValue: (userId) => {
+        ensureTradingData();
+        updateAssetPricesIfDue();
+        const row = db.prepare(`
+            SELECT COALESCE(SUM(ua.amount * ap.price), 0) v
+            FROM user_assets ua
+            JOIN asset_prices ap ON ap.symbol = ua.symbol
+            WHERE ua.user_id = ?
+        `).get(userId);
+        return Math.round(row.v);
+    },
+
+    buyAsset: (userId, symbol, amount) => {
+        ensureTradingData();
+        updateAssetPricesIfDue();
+        const sym = String(symbol).toUpperCase();
+        const a = db.prepare('SELECT * FROM asset_prices WHERE symbol = ?').get(sym);
+        if (!a) return { ok: false, msg: 'Aset tidak ditemukan. Lihat daftar: *.trading*' };
+        if (!Number.isInteger(amount) || amount < 1) return { ok: false, msg: 'Jumlah harus angka bulat 1 atau lebih. Contoh: *.trading beli BTC 5*' };
+        const total = Math.round(amount * a.price);
+        const user = db.prepare('SELECT coins FROM users WHERE user_id = ?').get(userId);
+        if (!user) return { ok: false, msg: 'Kamu belum terdaftar.' };
+        if (user.coins < total) return { ok: false, msg: `Koin kurang! Butuh *${total.toLocaleString()} Koin* (${amount} × ${a.price.toLocaleString()}).` };
+        const held = db.prepare('SELECT amount FROM user_assets WHERE user_id = ? AND symbol = ?').get(userId, sym);
+        const newAmount = (held ? held.amount : 0) + amount;
+        if (newAmount > TRADING_CAP) return { ok: false, msg: `Maksimal 1.000.000 unit *${sym}* per pemain.` };
+        const tx = db.transaction(() => {
+            db.prepare('UPDATE users SET coins = coins - ? WHERE user_id = ?').run(total, userId);
+            db.prepare('INSERT INTO user_assets (user_id, symbol, amount) VALUES (?, ?, ?) ON CONFLICT(user_id, symbol) DO UPDATE SET amount = amount + ?').run(userId, sym, amount, amount);
+        });
+        tx();
+        return { ok: true, symbol: sym, name: a.name, amount, total, price: a.price };
+    },
+
+    sellAsset: (userId, symbol, amount) => {
+        ensureTradingData();
+        updateAssetPricesIfDue();
+        const sym = String(symbol).toUpperCase();
+        const a = db.prepare('SELECT * FROM asset_prices WHERE symbol = ?').get(sym);
+        if (!a) return { ok: false, msg: 'Aset tidak ditemukan. Lihat daftar: *.trading*' };
+        const held = db.prepare('SELECT amount FROM user_assets WHERE user_id = ? AND symbol = ?').get(userId, sym);
+        const ownAmt = held ? held.amount : 0;
+        if (ownAmt <= 0) return { ok: false, msg: `Kamu tidak punya *${sym}*.` };
+        const sell = amount === Infinity ? ownAmt : Math.floor(amount);
+        if (Number.isNaN(sell) || sell < 1) return { ok: false, msg: 'Jumlah harus angka bulat 1 atau lebih. Contoh: *.trading jual BTC 2* atau *.trading jual BTC semua*' };
+        const qty = Math.min(sell, ownAmt);
+        const total = Math.round(qty * a.price);
+        const remain = ownAmt - qty;
+        const tx = db.transaction(() => {
+            db.prepare('UPDATE users SET coins = coins + ? WHERE user_id = ?').run(total, userId);
+            if (remain <= 0) db.prepare('DELETE FROM user_assets WHERE user_id = ? AND symbol = ?').run(userId, sym);
+            else db.prepare('UPDATE user_assets SET amount = ? WHERE user_id = ? AND symbol = ?').run(remain, userId, sym);
+        });
+        tx();
+        return { ok: true, symbol: sym, name: a.name, amount: qty, total, price: a.price };
     },
 
     // TAX SYSTEM: Koin >= 900 Juta dipotong 500 Juta tiap 5 menit
