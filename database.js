@@ -136,6 +136,16 @@ const userCols = db.prepare('PRAGMA table_info(users)').all().map(c => c.name);
 if (!userCols.includes('current_island_id')) {
     db.exec('ALTER TABLE users ADD COLUMN current_island_id INTEGER DEFAULT 0');
 }
+if (!userCols.includes('session_island')) {
+    db.exec("ALTER TABLE users ADD COLUMN session_island TEXT NOT NULL DEFAULT 'utama'");
+}
+
+const SESSION_ISLANDS = [
+    { key: 'utama', name: '🏝️ Pulau Utama', desc: 'Perairan Sagara. Ikan umum hingga celestial.', tiers: [1,2,3,4,5,6,7,8], reqLevel: 0, reqNetWorth: 0, reqRodTiers: [] },
+    { key: 'purba', name: '🦴 Pulau Purba', desc: 'Dasar laut purba. Divine & celestial langka.', tiers: [7,8,9], reqLevel: 100, reqNetWorth: 100000000, reqRodTiers: [] },
+    { key: 'kosmik', name: '🌌 Pulau Sagara Kosmik', desc: 'Samudera galaksi. Cosmic, primordial, the sky.', tiers: [9,10,11], reqLevel: 1000, reqNetWorth: 1000000000000, reqRodTiers: [] },
+    { key: 'demonangel', name: '⚔️ Pulau Angel & Demon', desc: 'Khusus ikan iblis & malaikat laut.', tiers: [12], reqLevel: 10000, reqNetWorth: 15000000000000, reqRodTiers: [35,36,37] }
+];
 
 function rowToDict(row) {
     return row ? { ...row } : null;
@@ -336,6 +346,37 @@ const database = {
     setIsland: (userId, islandId) => {
         db.prepare('UPDATE users SET current_island_id = ? WHERE user_id = ?').run(islandId, userId);
     },
+
+    getSessionIslands: () => SESSION_ISLANDS,
+
+    getSessionIsland: (key) => SESSION_ISLANDS.find(i => i.key === key) || SESSION_ISLANDS[0],
+
+    getSessionIslandKey: (userId) => {
+        const row = db.prepare('SELECT session_island FROM users WHERE user_id = ?').get(userId);
+        return (row && row.session_island) || 'utama';
+    },
+
+    setSessionIsland: (userId, key) => {
+        db.prepare("UPDATE users SET session_island = ? WHERE user_id = ?").run(key, userId);
+    },
+
+    getNetWorth: (userId) => {
+        const user = db.prepare('SELECT coins FROM users WHERE user_id = ?').get(userId);
+        ensureTradingData();
+        updateAssetPricesIfDue();
+        const assetVal = db.prepare(`
+            SELECT COALESCE(SUM(ua.amount * ap.price), 0) v
+            FROM user_assets ua
+            JOIN asset_prices ap ON ap.symbol = ua.symbol
+            WHERE ua.user_id = ?
+        `).get(userId);
+        return (user ? user.coins : 0) + Math.round(assetVal.v);
+    },
+
+    ownsRodTier: (userId, tiers) => {
+        const owns = db.prepare('SELECT rod_tier FROM user_rods WHERE user_id = ?').all(userId);
+        return owns.some(o => tiers.includes(o.rod_tier));
+    },
     
     addInventory: (userId, fishId, weight) => {
         const res = db.prepare('INSERT INTO inventory (user_id, fish_id, weight) VALUES (?, ?, ?)').run(userId, fishId, weight);
@@ -465,6 +506,21 @@ const database = {
         const effectiveMaxTier = Math.min(maxTier, Math.floor(Math.random() * (maxTier + luck) + 1));
         const fishList = db.prepare('SELECT * FROM fish WHERE tier <= ? ORDER BY RANDOM()').all(effectiveMaxTier);
         return fishList.length > 0 ? rowToDict(fishList[Math.floor(Math.random() * fishList.length)]) : null;
+    },
+
+    getRandomFishBySessionIsland: (maxRodTier, island, luck) => {
+        const allowed = island.tiers.filter(t => t <= maxRodTier);
+        if (allowed.length === 0) return null;
+        const rollCap = Math.min(maxRodTier, Math.max(...island.tiers));
+        const eff = Math.floor(Math.random() * (rollCap + luck) + 1);
+        const eligible = allowed.filter(t => t <= eff);
+        let list;
+        if (eligible.length > 0) {
+            list = db.prepare(`SELECT * FROM fish WHERE tier IN (${eligible.join(',')}) ORDER BY RANDOM()`).all();
+        } else {
+            list = db.prepare('SELECT * FROM fish WHERE tier = ? ORDER BY RANDOM()').all(Math.min(...allowed));
+        }
+        return list.length > 0 ? rowToDict(list[0]) : null;
     },
     
     sellFish: (userId, invId) => {
