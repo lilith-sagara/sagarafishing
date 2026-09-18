@@ -142,6 +142,9 @@ if (!userCols.includes('session_island')) {
 
 const SESSION_ISLANDS = [
     { key: 'utama', name: '🏝️ Pulau Utama', desc: 'Perairan Sagara. Ikan umum hingga celestial.', tiers: [1,2,3,4,5,6,7,8], reqLevel: 0, reqNetWorth: 0, reqRodTiers: [] },
+    { key: 'teluk', name: '🌾 Teluk Nelayan Muda', desc: 'Tempat mancing santai untuk pemula.', tiers: [1,2], reqLevel: 0, reqNetWorth: 0, reqRodTiers: [] },
+    { key: 'bakau', name: '🌳 Hutan Bakau Bayang', desc: 'Bakau teduh, penuh ikan rare.', tiers: [2,3,4], reqLevel: 25, reqNetWorth: 0, reqRodTiers: [] },
+    { key: 'laguna', name: '🪸 Laguna Karang Senja', desc: 'Karang cantik, epic & legendary.', tiers: [4,5,6], reqLevel: 50, reqNetWorth: 0, reqRodTiers: [] },
     { key: 'purba', name: '🦴 Pulau Purba', desc: 'Dasar laut purba. Divine & celestial langka.', tiers: [7,8,9], reqLevel: 100, reqNetWorth: 100000000, reqRodTiers: [] },
     { key: 'kosmik', name: '🌌 Pulau Sagara Kosmik', desc: 'Samudera galaksi. Cosmic, primordial, the sky.', tiers: [9,10,11], reqLevel: 1000, reqNetWorth: 1000000000000, reqRodTiers: [] },
     { key: 'demonangel', name: '⚔️ Pulau Angel & Demon', desc: 'Khusus ikan iblis & malaikat laut.', tiers: [12], reqLevel: 10000, reqNetWorth: 15000000000000, reqRodTiers: [35,36,37] }
