@@ -218,6 +218,13 @@ function updateAssetPricesIfDue() {
     return rollTradingPrices() !== null;
 }
 
+const BASE_BY_SYMBOL = {};
+TRADING_ASSETS.forEach(a => { BASE_BY_SYMBOL[a.symbol] = a.base; });
+
+const PRICE_REVERT = 0.25;
+const PRICE_FLOOR_RATIO = 0.1;
+const PRICE_CAP_RATIO = 3;
+
 function rollTradingPrices() {
     ensureTradingData();
     const first = db.prepare('SELECT updated_at FROM asset_prices ORDER BY rowid LIMIT 1').get();
@@ -228,10 +235,16 @@ function rollTradingPrices() {
     const moves = [];
     const tx = db.transaction(() => {
         rows.forEach(r => {
+            const base = BASE_BY_SYMBOL[r.symbol] || 1000;
             const dir = Math.random() < 0.5 ? -1 : 1;
             const magnitude = 0.01 + Math.random() * 0.99;
-            const change = dir * magnitude;
-            const next = Math.max(1, Math.round(r.price * (1 + change) * 100) / 100);
+            // Tarik harga balik ke harga dasar (mean reversion) agar tak merosot terus ke harga receh
+            const gap = (base - r.price) / base;
+            const pull = Math.max(-0.8, Math.min(0.8, gap)) * PRICE_REVERT;
+            const change = Math.max(-0.9, Math.min(0.9, pull + dir * magnitude));
+            const floor = Math.max(1, Math.round(base * PRICE_FLOOR_RATIO * 100) / 100);
+            const cap = Math.round(base * PRICE_CAP_RATIO * 100) / 100;
+            const next = Math.min(cap, Math.max(floor, Math.round(r.price * (1 + change) * 100) / 100));
             const pct = Math.round((next / r.price - 1) * 1000) / 10;
             up.run(r.price, next, now, r.symbol);
             moves.push({ symbol: r.symbol, name: r.name, type: r.type, from: r.price, to: next, pct });

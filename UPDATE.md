@@ -84,9 +84,12 @@ startWhatsApp()
 - **Broadcast**: `broadcastAnnouncement` jeda 2–3 detik, flag `broadcasting`, eksklusi phantom
   `NOT (user_id BETWEEN 900000 AND 999999999)`.
 - **Trading**: `TRADING_ASSETS` (20 aset: 8 kripto, 11 mata uang: USD/EUR/GBP/JPY/AUD/MYR/SGD/TWD/CNY/KRW/INR,
-  + SWI sawit). `rollTradingPrices()` menggerakkan tiap harga **±1–100%** per 15 menit
-  (`dir=±1 * magnitude 1%–100%`); `ensureTradingData()` memakai `INSERT OR IGNORE` agar aset baru
-  otomatis masuk meski DB sudah berisi. Tampilan `.trading` mengelompokkan `['Komoditas','Mata Uang','Kripto']`
+  + SWI sawit). `rollTradingPrices()` tiap 15 menit menggerakkan harga **±1–100%** TAPI dengan
+  **mean reversion** (tarik balik ke harga dasar `base`, `PRICE_REVERT=0.25` × gap maks ±0.8) dan
+  clamp `±90%` per roll. Harga dibatasi di rentang **[10% × base, 300% × base]** (`PRICE_FLOOR_RATIO`,
+  `PRICE_CAP_RATIO`) sehingga tidak pernah merosot jadi 1–9. History: versi lama random-walk murni
+  tanpa reversion → semua harga nyangkut di lantai 1 (di-reset sekali via script saat update).
+  `ensureTradingData()` memakai `INSERT OR IGNORE` agar aset baru otomatis masuk meski DB sudah berisi. Tampilan `.trading` mengelompokkan `['Komoditas','Mata Uang','Kripto']`
   — **jika menambah type/aset baru, pastikan tipenya masuk ke array `groups` di bot.js** (bug: SWI pernah
   tak tampil karena type 'Komoditas' tidak ada di groups). Order harga: Komoditas → Mata Uang → Kripto.
 - **Misi (`.misi` / `.claim`)**: statis config `MISSIONS` di `database.js` (`{ key, name, desc,
@@ -114,6 +117,7 @@ startWhatsApp()
 ## 4. Riwayat update (git log)
 
 ```
+6a2e1e9 fix: trading harga tak lagi merosot ke 1-9 — mean reversion ke base + rentang [10%-300%] dari base, reset harga
 7c7f2c9 fitur: monitor dashboard live (HTTP+SSE :3001) — aktivitas realtime, statistik, harga aset
 0707c2a fitur: .misi & .claim misi1 — Penguasa Langit & Bumi (rod tier 40 luck 8000%, potong 50 Kuadriliun)
 8487731 fitur: nerf harga Angel&Demon ke 1-2jt, +18 ikan demon (3 Giant langka 1T rate 1.67e-12, teks spesial)
