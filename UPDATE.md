@@ -86,6 +86,14 @@ startWhatsApp()
   otomatis masuk meski DB sudah berisi. Tampilan `.trading` mengelompokkan `['Komoditas','Mata Uang','Kripto']`
   — **jika menambah type/aset baru, pastikan tipenya masuk ke array `groups` di bot.js** (bug: SWI pernah
   tak tampil karena type 'Komoditas' tidak ada di groups). Order harga: Komoditas → Mata Uang → Kripto.
+- **Misi (`.misi` / `.claim`)**: statis config `MISSIONS` di `database.js` (`{ key, name, desc,
+  reqGiantFish, reqCoins, reqLevel, reward }`). `claimMission(userId, key)` cek syarat (level, jumlah
+  ikan Giant via `fish.is_giant`, uang `coins`) → kalau kurang muncul daftar syarat yang tak terpenuhi;
+  kalau cukup otomatis potong koin & beri rod (dan pasang `rod_tier`). Misinya sekarang 1:
+  *Penguasa Langit & Bumi* (3 ikan Giant + 50 Kuadriliun + Level 50000) → hadiah **Rod Langit & Bumi
+  (tier 40, luck 8000)**. Rod tier 40 (`price: 0`) ada di `RODS` keyboards.js → **TIDAK muncul di
+  `.toko`** (filter `price > 0`) maupun gacha. Tier 38–39 sengaja dikosongkan (owner mau bikin sendiri).
+  Pulau demonangel `reqRodTiers` sekarang `[35,36,37,40]` agar tier 40 bisa masuk.
 - **fmtKoin (display uang)**: dipakai di SEMUA pesan yang menampilkan nominal koin (top menu, `.profile`,
   `.rank`, `.toko`, `.belilevel`, `.belipulau`, `.museum`, `.trading` (Tunai/Aset & transaksi), `.activator`,
   `.jual`, `.jualjenisikan`, `.pindahpulau`, pesan error DB). Aturan: Triliun/Milyar/Juta/Ribu jika

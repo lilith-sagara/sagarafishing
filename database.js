@@ -159,7 +159,20 @@ const SESSION_ISLANDS = [
     { key: 'laguna', name: '🪸 Laguna Karang Senja', desc: 'Karang cantik, epic & legendary.', tiers: [4,5,6], reqLevel: 50, reqNetWorth: 0, reqRodTiers: [] },
     { key: 'purba', name: '🦴 Pulau Purba', desc: 'Dasar laut purba. Divine & celestial langka.', tiers: [7,8,9], reqLevel: 100, reqNetWorth: 100000000, reqRodTiers: [] },
     { key: 'kosmik', name: '🌌 Pulau Sagara Kosmik', desc: 'Samudera galaksi. Cosmic, primordial, the sky.', tiers: [9,10,11], reqLevel: 1000, reqNetWorth: 1000000000000, reqRodTiers: [] },
-    { key: 'demonangel', name: '⚔️ Pulau Angel & Demon', desc: 'Khusus ikan iblis & malaikat laut.', tiers: [12], reqLevel: 10000, reqNetWorth: 15000000000000, reqRodTiers: [35,36,37] }
+    { key: 'demonangel', name: '⚔️ Pulau Angel & Demon', desc: 'Khusus ikan iblis & malaikat laut.', tiers: [12], reqLevel: 10000, reqNetWorth: 15000000000000, reqRodTiers: [35,36,37,40] }
+];
+
+const MISSIONS = [
+    {
+        key: 'misi1',
+        name: 'Penguasa Langit & Bumi',
+        desc: 'Buktikan dirimu layak memegang kekuatan langit dan bumi.',
+        reqGiantFish: 3,
+        reqCoins: 50000000000000000,
+        reqLevel: 50000,
+        reward: { rodTier: 40, rodName: '🌍🌌 Rod Langit & Bumi', luck: 8000 },
+        rewardText: '🌍🌌 *Rod Langit & Bumi* (Tier 40) — Luck 8000%'
+    }
 ];
 
 function rowToDict(row) {
@@ -396,6 +409,44 @@ const database = {
     ownsRodTier: (userId, tiers) => {
         const owns = db.prepare('SELECT rod_tier FROM user_rods WHERE user_id = ?').all(userId);
         return owns.some(o => tiers.includes(o.rod_tier));
+    },
+
+    countGiantFish: (userId) => {
+        return db.prepare(`
+            SELECT COUNT(*) c
+            FROM inventory i JOIN fish f ON i.fish_id = f.id
+            WHERE i.user_id = ? AND i.sold = 0 AND f.is_giant = 1
+        `).get(userId).c;
+    },
+
+    getMissions: () => MISSIONS,
+
+    claimMission: (userId, key) => {
+        const misi = MISSIONS.find(m => m.key === String(key || '').toLowerCase());
+        if (!misi) return { ok: false, msg: `Misi *${key}* tidak ditemukan.\nCek daftar misi: *.misi*` };
+        const user = db.prepare('SELECT coins, level FROM users WHERE user_id = ?').get(userId);
+        if (!user) return { ok: false, msg: 'Kamu belum terdaftar. Ketik *.daftar* dulu.' };
+        const unmet = [];
+        if (user.level < misi.reqLevel) unmet.push(`Level minimal *${misi.reqLevel.toLocaleString()}* (kamu ${user.level})`);
+        const giants = db.prepare(`
+            SELECT COUNT(*) c FROM inventory i JOIN fish f ON i.fish_id = f.id
+            WHERE i.user_id = ? AND i.sold = 0 AND f.is_giant = 1
+        `).get(userId).c;
+        if (giants < misi.reqGiantFish) unmet.push(`Memiliki *${misi.reqGiantFish} ikan Giant* (punya ${giants})`);
+        if (user.coins < misi.reqCoins) unmet.push(`Uang *${fmtKoin(misi.reqCoins)}* tidak cukup (punya ${fmtKoin(user.coins)})`);
+        if (unmet.length) {
+            return { ok: false, msg: `⛔ *${misi.name}* belum bisa diklaim.\nSyarat belum terpenuhi:\n` + unmet.map(u => `❌ ${u}`).join('\n') };
+        }
+        if (db.prepare('SELECT id FROM user_rods WHERE user_id = ? AND rod_tier = ?').get(userId, misi.reward.rodTier)) {
+            return { ok: false, msg: `❌ Kamu sudah memiliki *${misi.reward.rodName}*.` };
+        }
+        const tx = db.transaction(() => {
+            db.prepare('UPDATE users SET coins = coins - ? WHERE user_id = ?').run(misi.reqCoins, userId);
+            db.prepare('INSERT INTO user_rods (user_id, rod_tier, rod_name) VALUES (?, ?, ?)').run(userId, misi.reward.rodTier, misi.reward.rodName);
+            db.prepare('UPDATE users SET rod_tier = ? WHERE user_id = ?').run(misi.reward.rodTier, userId);
+        });
+        tx();
+        return { ok: true, misi, coins: user.coins - misi.reqCoins };
     },
     
     addInventory: (userId, fishId, weight) => {

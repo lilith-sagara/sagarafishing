@@ -48,7 +48,10 @@ const RODS = [
     { tier: 37, name: '🔱 Spittle Diaboli (Ludah Setan)', price: 0, max_tier: 11, cooldown: 0.5, luck_bonus: 5000, description: 'Pancingan terkutuk dari air liur iblis langit.', tier_label: 'THE SKY' },
 
     // TIER 36: FALLEN ANGEL
-    { tier: 36, name: '🖤 Lilith the Last Rods', price: 500000000000000, max_tier: 11, cooldown: 0.3, luck_bonus: 5000, description: 'Pancingan legendaris berbalut kekuatan sang Malaikat Jatuh.', tier_label: 'FALLEN ANGEL' }
+    { tier: 36, name: '🖤 Lilith the Last Rods', price: 500000000000000, max_tier: 11, cooldown: 0.3, luck_bonus: 5000, description: 'Pancingan legendaris berbalut kekuatan sang Malaikat Jatuh.', tier_label: 'FALLEN ANGEL' },
+
+    // TIER 40: LANGIT & BUMI (HADIAH MISI — TIDAK ADA DI TOKO/GACHA)
+    { tier: 40, name: '🌍🌌 Rod Langit & Bumi', price: 0, max_tier: 12, cooldown: 0.2, luck_bonus: 8000, description: 'Perpaduan kekuatan langit dan bumi. Hanya bisa didapat dari misi!', tier_label: 'LANGIT & BUMI' }
 ];
 
 function getMainMenuKeyboard() {

@@ -42,6 +42,7 @@ function getMenuText(user) {
 ││ ▸ .beli   .belilevel   .belipulau
 ││ ▸ .pindahpulau   .activator   .cooldown
 ││ ▸ .profile   .rank   .setann   .daftar
+││ ▸ .misi   .claim   (misikan baru!)
 ╰╯
 
 ♪ Selamat mancing-mancing, Nak! 🐙`;
@@ -520,6 +521,34 @@ async function startWhatsApp() {
                 if (!r.ok) return sock.sendMessage(from, { text: `❌ Ikan yang kamu cari *${n}* tidak ada di inventory kamu.\nCek daftar ikanmu: *.inventory*` }, { quoted: m });
                 const namaTampil = r.names.join(', ');
                 return sock.sendMessage(from, { text: `✅ Terjual *${r.count} ekor* ikan *${namaTampil}*!\n💰 Total: +${fmtKoin(r.total)} Koin` }, { quoted: m });
+            }
+            if (cmd === 'misi') {
+                const misiList = db.getMissions();
+                let txt = `┌───「 📜 MISI SAGARA 」───┐\n`;
+                if (misiList.length === 0) {
+                    txt += `│ (Belum ada misi — pantengin terus!)\n`;
+                } else {
+                    misiList.forEach(m => {
+                        txt += `┌─── 📋 *${m.name}* ───┐\n`;
+                        txt += `│ ${m.desc}\n`;
+                        txt += `│ 🔐 *Syarat:*\n`;
+                        txt += `│    • Ikan *Giant*: ${m.reqGiantFish} ekor\n`;
+                        txt += `│    • Uang: *${fmtKoin(m.reqCoins)}*\n`;
+                        txt += `│    • Level: *${m.reqLevel.toLocaleString()}*\n`;
+                        txt += `│ 🎁 *Hadiah:* ${m.rewardText}\n`;
+                        txt += `│ 💡 Klaim: *.claim ${m.key}*\n`;
+                        txt += `└════════════════════════┘\n`;
+                    });
+                }
+                txt += `└─────────────────────────┘`;
+                return sock.sendMessage(from, { text: txt }, { quoted: m });
+            }
+            if (cmd === 'claim') {
+                const key = args[1];
+                if (!key) return sock.sendMessage(from, { text: `💡 *Cara klaim misi:*\n\n*.claim <kode misi>*\nContoh: *.claim misi1*\n\nLihat daftar misi: *.misi*` }, { quoted: m });
+                const r = db.claimMission(userId, key);
+                if (!r.ok) return sock.sendMessage(from, { text: r.msg }, { quoted: m });
+                return sock.sendMessage(from, { text: `🎉 *MISI BERHASIL DIKLAIM!*\n━━━━━━━━━━━━━━━━━━━━\n📋 ${r.misi.name}\n🎁 ${r.misi.rewardText}\n\n💰 Uang terpotong: -${fmtKoin(r.misi.reqCoins)}\n💵 Sisa uang: ${fmtKoin(r.coins)}\n🎣 Rod otomatis terpasang!\n\n❓ Buy back halilintar? Langsung coba *.setpancingan 40*` }, { quoted: m });
             }
             if (cmd === 'pindahpulau') {
                 const islands = db.getSessionIslands();
