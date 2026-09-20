@@ -125,6 +125,19 @@ ae2513d init
 Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic · 7 Divine ·
 8 Celestial · 9 Cosmic · 10 Primordial · 11 The Sky · 12 Angel & Demon.
 
+**Pulau Angel & Demon (tier 12) — nerf & Giant:**
+- 27 ikan tier 12: 24 normal (harga jual ±1–2 Juta, `price_per_kg = 300`) + **3 Giant**
+  (`Giant Behemoth Kraken`, `Giant Seraph Dragonfish`, `Giant Nyx Shadow Whale`, `is_giant = 1`).
+- Giant: bobot 4000–5000kg × `price_per_kg 250.000.000` → jual **1–1.25 Triliun/ekor**.
+- **Rate Giant 0.00000000167%** (`1.67e-12`) per tebar — TIDAK dipengaruhi rod/luck. Di demonangel,
+  pool normal SELALU mengeksklusi `is_giant = 0` dan override giant dicek setelah pilih ikan normal
+  (`Math.random() < 1.67e-12` → pemilihan dari `WHERE is_giant = 1 ORDER BY RANDOM()`).
+- Teks tangkapan Giant berbeda (blok `[ PERISTIWA LANGKA TERDETEKSI ]`) — cabang `fish.is_giant`
+  di handler `.mancing` bot.js.
+- Seed idempoten: `seed_demon_giants.js` (nerf `UPDATE ... WHERE tier=12 AND is_giant=0` + insert
+  dengan `INSERT` by name; jalankan sebelum/ulang kapan saja). Kolom `fish.is_giant` dimigrasi di
+  `database.js` (pola `PRAGMA table_info`).
+
 ---
 
 ## 5. Cara AI berikutnya melanjutkan

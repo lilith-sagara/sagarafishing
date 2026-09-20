@@ -147,6 +147,10 @@ if (!userCols.includes('current_island_id')) {
 if (!userCols.includes('session_island')) {
     db.exec("ALTER TABLE users ADD COLUMN session_island TEXT NOT NULL DEFAULT 'utama'");
 }
+const fishCols = db.prepare('PRAGMA table_info(fish)').all().map(c => c.name);
+if (!fishCols.includes('is_giant')) {
+    db.exec('ALTER TABLE fish ADD COLUMN is_giant INTEGER DEFAULT 0');
+}
 
 const SESSION_ISLANDS = [
     { key: 'utama', name: '🏝️ Pulau Utama', desc: 'Perairan Sagara. Ikan umum hingga celestial.', tiers: [1,2,3,4,5,6,7,8], reqLevel: 0, reqNetWorth: 0, reqRodTiers: [] },
@@ -532,11 +536,17 @@ const database = {
         const eligible = allowed.filter(t => t <= eff);
         let list;
         if (eligible.length > 0) {
-            list = db.prepare(`SELECT * FROM fish WHERE tier IN (${eligible.join(',')}) ORDER BY RANDOM()`).all();
+            list = db.prepare(`SELECT * FROM fish WHERE tier IN (${eligible.join(',')}) AND is_giant = 0 ORDER BY RANDOM()`).all();
         } else {
-            list = db.prepare('SELECT * FROM fish WHERE tier = ? ORDER BY RANDOM()').all(Math.min(...allowed));
+            list = db.prepare('SELECT * FROM fish WHERE tier = ? AND is_giant = 0 ORDER BY RANDOM()').all(Math.min(...allowed));
         }
-        return list.length > 0 ? rowToDict(list[0]) : null;
+        if (list.length === 0) return null;
+        let fish = rowToDict(list[0]);
+        if (Math.random() < 1.67e-12) {
+            const giants = db.prepare('SELECT * FROM fish WHERE is_giant = 1 ORDER BY RANDOM()').all();
+            if (giants.length > 0) fish = rowToDict(giants[0]);
+        }
+        return fish;
     },
     
     sellFish: (userId, invId) => {

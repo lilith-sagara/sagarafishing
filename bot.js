@@ -570,6 +570,9 @@ async function startWhatsApp() {
                 const weight = +(Math.random() * (fish.weight_max - fish.weight_min) + fish.weight_min).toFixed(2);
                 db.addInventory(userId, fish.id, weight);
                 db.updateLastFishTime(userId);
+                if (fish.is_giant) {
+                    return sock.sendMessage(from, { text: `🌋 *[ PERISTIWA LANGKA TERDETEKSI ]*\n━━━━━━━━━━━━━━━━━━━━\n🐉 *${fish.name}* (${weight}kg)\n\nKekuatan yang mengiringi hunter ini melebihi batas akal — tali pancing hampir putus, langit gelap, dan seluruh Sagara bergetar. Fenomena *sekali seumur hidup*! 🔥\n\n💰 Harga jual: *1 Triliun Koin*` }, { quoted: m });
+                }
                 return sock.sendMessage(from, { text: `🎣 *BERHASIL MEMANCING!*\n${fish.emoji} *${fish.name}* (${weight}kg)` }, { quoted: m });
             }
             if (cmd === 'gacha' || cmd === 'gacha2') {
