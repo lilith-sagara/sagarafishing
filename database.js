@@ -172,14 +172,13 @@ const TRADING_ASSETS = [
     { symbol: 'JPY', name: 'Yen Jepang', type: 'Mata Uang', base: 8000 },
     { symbol: 'AUD', name: 'Dollar Australia', type: 'Mata Uang', base: 12000 },
     { symbol: 'MYR', name: 'Ringgit Malaysia', type: 'Mata Uang', base: 5000 },
-    { symbol: 'SGD', name: 'Dollar Singapura', type: 'Mata Uang', base: 9000 }
+    { symbol: 'SGD', name: 'Dollar Singapura', type: 'Mata Uang', base: 9000 },
+    { symbol: 'SWI', name: 'Sawit (Crude Palm Oil)', type: 'Komoditas', base: 11000 }
 ];
 
 function ensureTradingData() {
-    const count = db.prepare('SELECT COUNT(*) c FROM asset_prices').get().c;
-    if (count > 0) return;
     const now = Date.now();
-    const ins = db.prepare('INSERT INTO asset_prices (symbol, name, type, price, prev_price, updated_at) VALUES (?, ?, ?, ?, 0, ?)');
+    const ins = db.prepare('INSERT OR IGNORE INTO asset_prices (symbol, name, type, price, prev_price, updated_at) VALUES (?, ?, ?, ?, 0, ?)');
     const tx = db.transaction(() => {
         TRADING_ASSETS.forEach(a => ins.run(a.symbol, a.name, a.type, a.base, now));
     });
@@ -200,7 +199,9 @@ function rollTradingPrices() {
     const moves = [];
     const tx = db.transaction(() => {
         rows.forEach(r => {
-            const change = Math.random() * 0.30 - 0.15;
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            const magnitude = 0.01 + Math.random() * 0.99;
+            const change = dir * magnitude;
             const next = Math.max(1, Math.round(r.price * (1 + change) * 100) / 100);
             const pct = Math.round((next / r.price - 1) * 1000) / 10;
             up.run(r.price, next, now, r.symbol);

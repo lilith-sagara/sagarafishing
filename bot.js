@@ -58,7 +58,7 @@ const fmtPrice = (n) => {
     return Math.round(n).toLocaleString();
 };
 
-// Announcement otomatis setiap harga market di-roll (±15% tiap 15 mnt)
+// Announcement otomatis setiap harga market di-roll (±1–100% tiap 15 mnt)
 // Broadcast DM ke semua user yang pernah pakai command (jeda 2-3 detik anti-ban)
 async function broadcastAnnouncement(text) {
     if (broadcasting) return { started: false, ok: 0, fail: 0 };
@@ -459,7 +459,7 @@ async function startWhatsApp() {
                     });
                 });
                 txt += `├────────────────────────────┤\n`;
-                txt += `│ 📝 Harga otomatis berubah tiap *15 menit* (naik/turun ±15%)\n`;
+                txt += `│ 📝 Harga otomatis berubah tiap *15 menit* (naik/turun 1–100%)\n`;
                 txt += `│ 💡 Beli: .trading beli BTC 5 (tanpa angka = 1)\n│ 💡 Jual: .trading jual BTC 5 | BTC semua\n`;
                 txt += `└────────────────────────────┘`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
