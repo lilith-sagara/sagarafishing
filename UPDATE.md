@@ -18,6 +18,8 @@ Fitur inti:
 - **Trading aset** (20 aset: 8 kripto, 11 mata uang & komoditas sawit), harga di-roll ±1–100% tiap 15 menit.
 - Aduman anunciado pasar & `.announce` broadcast DM owner.
 - Phantom Anglers (bot NPC yang juga main).
+- **Live monitor dashboard** (HTTP `localhost:3001`): aktivitas realtime via SSE + statistik
+  jumlah user/tangkapan + ticker harga 20 aset. Otomatis nyala saat bot jalan.
 
 > Catatan: `package.json` masih berdeskripsi "Telegram", karena awalnya penulis memport dari
 > bot Telegram (paket `telegraf` ada di dependencies tapi **tidak dipakai**). Runtime aktual
@@ -37,6 +39,7 @@ Fitur inti:
 | `phantom_anglers.js` | NPC bot. |
 | `session_wa/` | Sesi WhatsApp (auth). **JANGAN di-commit / jangan 2 proses bersamaan.** |
 | `database.sqlite` | DB SQLite (gitignored). |
+| `monitor.js` | Live dashboard (HTTP+SSE, port 3001). Dipanggil `require` di bot.js; `push(action, user, detail, extra)` merekam event, endpoint `/` (HTML), `/api/recent`, `/api/stats`, `/api/prices`, `/events` (SSE). Butuh `DB.getUserCount`, `DB.getTotalCatches`, `DB.getAssetPrices` di database.js. |
 | `announce_target.json` | Target grup untuk announcement market (gitignored). |
 | `*.js` lain (`.seed_*`, `add_rod_lilith.js`, `update_rods.js`, `nerf_script.js`, `fix_fish_prices.js`) | Skrip sekali-jalan untuk seeding/balancing. |
 
@@ -99,6 +102,11 @@ startWhatsApp()
   `.jual`, `.jualjenisikan`, `.pindahpulau`, pesan error DB). Aturan: Triliun/Milyar/Juta/Ribu jika
   `n >= 0.999×unit` (agar `999999→1 Juta`, bukan `1000 Ribu`), di bawah itu angka bulat. Ada salinan
   `fmtKoin` di `bot.js` & `database.js` — **jika diubah, ubah keduanya**.
+- **Monitor dashboard**: `monitor.js` menjalankan HTTP+SSE di `MONITOR_PORT` (default 3001),
+  listen 0.0.0.0 (akses dari HP/tabel lewat `http://<ip-lan>:3001`). Dipanggil dari `bot.js`
+  (satu proses, satu koneksi DB — jangan jalan terpisah, nanti SQLite terkunci). Hook event:
+  `logAct('mancing'|'jual'|'trading'|'daftar'|'claim'|'pindahpulau'|'gacha', user, detail)`.
+  Nonaktifkan dengan env `MONITOR_DISABLED`.
 - **Migrations**: pola `PRAGMA table_info` + `ALTER TABLE` (lihat kolom `session_island`, `rod_name`, `current_island_id`).
 
 ---
@@ -106,6 +114,7 @@ startWhatsApp()
 ## 4. Riwayat update (git log)
 
 ```
+7c7f2c9 fitur: monitor dashboard live (HTTP+SSE :3001) — aktivitas realtime, statistik, harga aset
 0707c2a fitur: .misi & .claim misi1 — Penguasa Langit & Bumi (rod tier 40 luck 8000%, potong 50 Kuadriliun)
 8487731 fitur: nerf harga Angel&Demon ke 1-2jt, +18 ikan demon (3 Giant langka 1T rate 1.67e-12, teks spesial)
 9264ccc fitur: nominal koin dibaca Ribu/Juta/Milyar/Triliun di semua fitur (fmtKoin)
@@ -158,8 +167,8 @@ Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic
    (`pm2 start bot.js --name bot`). Jangan hidupkan instance kedua (2 socket=sesi yang
    sama → WS "conflict" → DM kacau, Bad MAC). Cek selalu dengan `ps aux | grep bot\\.js`.
 2. **Jangan pernah commit/menghapus `session_wa/`** tanpa perintah eksplisit. Jika sesi error
-   (`Connection Failure`/`Bad MAC`/`401`), opsi aman: `pm2 delete`, `rm -rf session_wa`,
-   run, scan QR dari log (`pm2 logs sagara-fishing`), lalu kabari owner.
+   (`Connection Failure`/`Bad MAC`/`401`), opsi aman: `pm2 delete bot`, `rm -rf session_wa`,
+   `pm2 start bot.js --name bot`, scan QR dari log (`pm2 logs bot`), lalu kabari owner.
 3. **Owner bot**: username `lilith` (user_id `47730491674663`, jid `47730491674663@lid`).
    Nomor alternatif `6287840275933`. Command admin: `.announce`, `.fetchdm` (debug).
 4. **Jangan reply lewat PN jid** (`user_id@s.whatsapp.net`) untuk target LID — pakai jid
@@ -198,4 +207,4 @@ Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic
 
 ---
 
-*Terakhir diperbarui: 19 Sep 2026 — sesi pulau 7 pulau, trading 15 aset, broadcast LID-aware.*
+*Terakhir diperbarui: 20 Sep 2026 — sesi pulau 7 pulau, trading 20 aset, broadcast LID-aware, monitor dashboard live.*

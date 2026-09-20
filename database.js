@@ -754,6 +754,14 @@ const database = {
 
     getAssetPrices: () => getLivePrices(),
 
+    getUserCount: () => {
+        return db.prepare("SELECT COUNT(*) c FROM users WHERE NOT (user_id BETWEEN 900000 AND 999999999)").get().c;
+    },
+
+    getTotalCatches: () => {
+        return db.prepare('SELECT COALESCE(SUM(total_catches), 0) c FROM users').get().c;
+    },
+
     getUserAssets: (userId) => getUserAssetsRows(userId),
 
     getAssetValue: (userId) => {

@@ -52,6 +52,9 @@ let activeSock = null;
 let broadcasting = false;
 const sleepMs = (ms) => new Promise(r => setTimeout(r, ms));
 
+const monitor = require('./monitor.js');
+const logAct = (a, u, d) => { try { monitor.push(a, u, d); } catch (e) {} };
+
 const fmtPrice = (n) => {
     if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T';
     if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M';
@@ -235,6 +238,7 @@ async function startWhatsApp() {
                 if (!user) {
                     if (!name) return sock.sendMessage(from, { text: `📝 *Daftar dulu yuk!*\n\nCara: *.daftar <nama>*\nContoh: *.daftar SagaraKing*\n\nSetelah daftar, semua fitur siap dipakai:\n.menu .profile .mancing .gacha .toko .setpancingan dll.` }, { quoted: m });
                     db.getOrCreateUser(userId, name);
+                    logAct('daftar', name, `Bergabung sebagai anggota baru 🌊`);
                     return sock.sendMessage(from, { text: `✅ *Berhasil daftar!*\nSelamat datang, *${name}* di Sagara Fishing! 🌊\nKetik *.menu* untuk lihat semua fitur.` }, { quoted: m });
                 }
                 if (!name) return sock.sendMessage(from, { text: `❌ Nama kosong. Pakai: *.daftar <nama>*` }, { quoted: m });
@@ -421,6 +425,7 @@ async function startWhatsApp() {
                     const qty = args[3] === undefined ? 1 : Math.floor(parseFloat(args[3]));
                     const r = db.buyAsset(userId, sym, qty);
                     if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
+                    logAct('trading', user.username, `Beli ${r.amount} × ${r.symbol} (-${fmtKoin(r.total)})`);
                     return sock.sendMessage(from, { text: `💹 *BELI ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 Total: -${fmtKoin(r.total)} Koin (${fmtPrice(r.price)}/unit)\n💰 Sisa saldo: ${fmtKoin(user.coins - r.total)} Koin` }, { quoted: m });
                 }
                 if (sub === 'jual') {
@@ -428,6 +433,7 @@ async function startWhatsApp() {
                     const qty = args[3] === undefined ? 1 : (all ? Infinity : Math.floor(parseFloat(args[3])));
                     const r = db.sellAsset(userId, sym, qty);
                     if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
+                    logAct('trading', user.username, `Jual ${r.amount} × ${r.symbol} (+${fmtKoin(r.total)})`);
                     return sock.sendMessage(from, { text: `💹 *JUAL ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 +${fmtKoin(r.total)} Koin (${fmtPrice(r.price)}/unit)` }, { quoted: m });
                 }
                 const prices = db.getAssetPrices();
@@ -512,6 +518,7 @@ async function startWhatsApp() {
                 else if (param === 'biasa') inv.items.filter(it => it.tier_name === 'Biasa').forEach(it => { const r = db.sellFish(userId, it.id); if (r) { soldCount++; totalCoins += r.price; }});
                 else if (param === 'legend') inv.items.filter(it => it.tier >= 7).forEach(it => { const r = db.sellFish(userId, it.id); if (r) { soldCount++; totalCoins += r.price; }});
                 else { const res = db.sellFish(userId, parseInt(param)); if (res) { soldCount = 1; totalCoins = res.price; } }
+                if (soldCount > 0) logAct('jual', user.username, `Jual ${soldCount} ikan (+${fmtKoin(totalCoins)})`);
                 return sock.sendMessage(from, { text: soldCount > 0 ? `✅ Berhasil jual *${soldCount}* ikan senilai *${fmtKoin(totalCoins)} Koin*!` : `❌ Ikan tidak ditemukan.` }, { quoted: m });
             }
             if (cmd === 'jualjenisikan' || (cmd === 'jualjenis' && (args[1] || '') === 'ikan')) {
@@ -520,6 +527,7 @@ async function startWhatsApp() {
                 const r = db.sellFishByName(userId, n);
                 if (!r.ok) return sock.sendMessage(from, { text: `❌ Ikan yang kamu cari *${n}* tidak ada di inventory kamu.\nCek daftar ikanmu: *.inventory*` }, { quoted: m });
                 const namaTampil = r.names.join(', ');
+                if (r.count > 0) logAct('jual', user.username, `Jual ${r.count} × ${namaTampil} (+${fmtKoin(r.total)})`);
                 return sock.sendMessage(from, { text: `✅ Terjual *${r.count} ekor* ikan *${namaTampil}*!\n💰 Total: +${fmtKoin(r.total)} Koin` }, { quoted: m });
             }
             if (cmd === 'misi') {
@@ -548,6 +556,7 @@ async function startWhatsApp() {
                 if (!key) return sock.sendMessage(from, { text: `💡 *Cara klaim misi:*\n\n*.claim <kode misi>*\nContoh: *.claim misi1*\n\nLihat daftar misi: *.misi*` }, { quoted: m });
                 const r = db.claimMission(userId, key);
                 if (!r.ok) return sock.sendMessage(from, { text: r.msg }, { quoted: m });
+                logAct('claim', user.username, `Klaim ${r.misi.name} → ${r.misi.reward.rodName}`);
                 return sock.sendMessage(from, { text: `🎉 *MISI BERHASIL DIKLAIM!*\n━━━━━━━━━━━━━━━━━━━━\n📋 ${r.misi.name}\n🎁 ${r.misi.rewardText}\n\n💰 Uang terpotong: -${fmtKoin(r.misi.reqCoins)}\n💵 Sisa uang: ${fmtKoin(r.coins)}\n🎣 Rod otomatis terpasang!\n\n❓ Buy back halilintar? Langsung coba *.setpancingan 40*` }, { quoted: m });
             }
             if (cmd === 'pindahpulau') {
@@ -582,6 +591,7 @@ async function startWhatsApp() {
                     return sock.sendMessage(from, { text: t }, { quoted: m });
                 }
                 db.setSessionIsland(userId, isl.key);
+                logAct('pindahpulau', user.username, `Pindah ke ${isl.name}`);
                 return sock.sendMessage(from, { text: `🏝️ *Pindah pulau berhasil!*\n📍 Kamu sekarang di: *${isl.name}*\n🎣 Ikan di sini: tier ${isl.tiers.join('-')}\n\n💾 Ini sesi kamu — kamu mancing di sini terus sampai pindah lagi (*.pindahpulau*).` }, { quoted: m });
             }
             if (cmd === 'mancing') {
@@ -599,6 +609,7 @@ async function startWhatsApp() {
                 const weight = +(Math.random() * (fish.weight_max - fish.weight_min) + fish.weight_min).toFixed(2);
                 db.addInventory(userId, fish.id, weight);
                 db.updateLastFishTime(userId);
+                logAct('mancing', user.username, `${fish.emoji} ${fish.name} (${weight}kg)`);
                 if (fish.is_giant) {
                     return sock.sendMessage(from, { text: `🌋 *[ PERISTIWA LANGKA TERDETEKSI ]*\n━━━━━━━━━━━━━━━━━━━━\n🐉 *${fish.name}* (${weight}kg)\n\nKekuatan yang mengiringi hunter ini melebihi batas akal — tali pancing hampir putus, langit gelap, dan seluruh Sagara bergetar. Fenomena *sekali seumur hidup*! 🔥\n\n💰 Harga jual: *1 Triliun Koin*` }, { quoted: m });
                 }
@@ -634,6 +645,7 @@ async function startWhatsApp() {
                         if (rw.rodTier) { db.addRod(userId, rw.rodTier, rw.name); db.updateRodTier(userId, rw.rodTier); }
                     }
                 }
+                if (results.length > 0) logAct('gacha', user.username, `${isR2 ? 'Gacha Premium' : 'Gacha'} ${count}x → ${results[0].slice(2)}${count > 1 ? ' …' : ''}`);
                 return sock.sendMessage(from, { text: `🎰 *HASIL ROLL (${count}x)*\n\n${results.join('\n')}` }, { quoted: m });
             }
         } catch (err) { console.error(err); }
