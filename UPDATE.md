@@ -93,7 +93,9 @@ startWhatsApp()
 ## 4. Riwayat update (git log)
 
 ```
+9347d40 fitur: 4 mata uang baru (TWD, CNY, KRW, INR) + .trading tampilkan KOMODITAS (SWI) di atas
 0a39948 fitur: aset sawit SWI (Komoditas) + pergerakan harga 1-100% tiap 15 mnt
+e0649f6 docs: UPDATE.md — panduan struktur kode, riwayat update, dan kontinuitas AI
 27d2183 fitur: tambah 3 pulau level bawah (teluk, bakau, laguna)
 5231a57 fitur: sesi pulau (.pindahpulau) 4 pulau, pool ikan per pulau, gate pulau angel & demon
 c71650c balance: luck rod puluhan ribu diturunkan, cap 4500-5000
