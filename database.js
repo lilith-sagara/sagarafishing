@@ -173,6 +173,10 @@ const TRADING_ASSETS = [
     { symbol: 'AUD', name: 'Dollar Australia', type: 'Mata Uang', base: 12000 },
     { symbol: 'MYR', name: 'Ringgit Malaysia', type: 'Mata Uang', base: 5000 },
     { symbol: 'SGD', name: 'Dollar Singapura', type: 'Mata Uang', base: 9000 },
+    { symbol: 'TWD', name: 'Dollar Taiwan', type: 'Mata Uang', base: 3500 },
+    { symbol: 'CNY', name: 'Yuan China', type: 'Mata Uang', base: 5500 },
+    { symbol: 'KRW', name: 'Won Korea', type: 'Mata Uang', base: 1500 },
+    { symbol: 'INR', name: 'Rupee India', type: 'Mata Uang', base: 3500 },
     { symbol: 'SWI', name: 'Sawit (Crude Palm Oil)', type: 'Komoditas', base: 11000 }
 ];
 
@@ -235,7 +239,7 @@ function getLivePrices() {
     return db.prepare(`
         SELECT symbol, name, type, price, prev_price, updated_at
         FROM asset_prices
-        ORDER BY CASE type WHEN 'Mata Uang' THEN 1 ELSE 2 END, symbol
+        ORDER BY CASE type WHEN 'Komoditas' THEN 0 WHEN 'Mata Uang' THEN 1 ELSE 2 END, symbol
     `).all().map(r => ({
         ...r,
         changePct: r.prev_price > 0 ? Math.round(((r.price / r.prev_price) - 1) * 1000) / 10 : 0

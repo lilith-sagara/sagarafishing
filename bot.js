@@ -447,11 +447,11 @@ async function startWhatsApp() {
                     });
                 }
                 txt += `├────── 📊 HARGA PASAR ──────┤\n`;
-                const groups = ['Mata Uang', 'Kripto'];
+                const groups = ['Komoditas', 'Mata Uang', 'Kripto'];
                 groups.forEach(g => {
                     const list = prices.filter(p => p.type === g);
                     if (!list.length) return;
-                    txt += `│ ${g === 'Kripto' ? '🪙 KRIPTO' : '💱 MATA UANG'}\n`;
+                    txt += `│ ${g === 'Kripto' ? '🪙 KRIPTO' : g === 'Komoditas' ? '🌴 KOMODITAS' : '💱 MATA UANG'}\n`;
                     list.forEach(p => {
                         const held = myAssets.find(a => a.symbol === p.symbol);
                         const dot = p.changePct > 0 ? '🟢' : p.changePct < 0 ? '🔴' : '⚪';

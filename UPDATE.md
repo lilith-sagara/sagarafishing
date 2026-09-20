@@ -15,7 +15,7 @@ dan dijalankan dengan **pm2**.
 Fitur inti:
 - Mancing (RNG) dengan cooldown & activator, gacha rod langka, toko rod, inventory, aquarium, museum.
 - Sistem sesi **pulau**: `.pindahpulau` menentukan pool ikan (tier mana yang bisa ditangkap).
-- **Trading aset** (16 kripto, mata uang & komoditas sawit), harga di-roll ±1–100% tiap 15 menit.
+- **Trading aset** (20 aset: 8 kripto, 11 mata uang & komoditas sawit), harga di-roll ±1–100% tiap 15 menit.
 - Aduman anunciado pasar & `.announce` broadcast DM owner.
 - Phantom Anglers (bot NPC yang juga main).
 
@@ -80,9 +80,12 @@ startWhatsApp()
   (`setLastSeenJid`) dan kirim broadcast ke jid simpanan itu, bukan `user_id@s.whatsapp.net`.
 - **Broadcast**: `broadcastAnnouncement` jeda 2–3 detik, flag `broadcasting`, eksklusi phantom
   `NOT (user_id BETWEEN 900000 AND 999999999)`.
-- **Trading**: `TRADING_ASSETS` (16 aset: 8 kripto, 7 mata uang, SWI sawit). `rollTradingPrices()`
-  menggerakkan tiap harga **±1–100%** per 15 menit (`dir=±1 * magnitude 1%–100%`); `ensureTradingData()`
-  memakai `INSERT OR IGNORE` agar aset baru (mis. SWI) otomatis masuk meski DB sudah berisi.
+- **Trading**: `TRADING_ASSETS` (20 aset: 8 kripto, 11 mata uang: USD/EUR/GBP/JPY/AUD/MYR/SGD/TWD/CNY/KRW/INR,
+  + SWI sawit). `rollTradingPrices()` menggerakkan tiap harga **±1–100%** per 15 menit
+  (`dir=±1 * magnitude 1%–100%`); `ensureTradingData()` memakai `INSERT OR IGNORE` agar aset baru
+  otomatis masuk meski DB sudah berisi. Tampilan `.trading` mengelompokkan `['Komoditas','Mata Uang','Kripto']`
+  — **jika menambah type/aset baru, pastikan tipenya masuk ke array `groups` di bot.js** (bug: SWI pernah
+  tak tampil karena type 'Komoditas' tidak ada di groups). Order harga: Komoditas → Mata Uang → Kripto.
 - **Migrations**: pola `PRAGMA table_info` + `ALTER TABLE` (lihat kolom `session_island`, `rod_name`, `current_island_id`).
 
 ---
@@ -91,7 +94,6 @@ startWhatsApp()
 
 ```
 0a39948 fitur: aset sawit SWI (Komoditas) + pergerakan harga 1-100% tiap 15 mnt
-e0649f6 docs: UPDATE.md — panduan struktur kode, riwayat update, dan kontinuitas AI
 27d2183 fitur: tambah 3 pulau level bawah (teluk, bakau, laguna)
 5231a57 fitur: sesi pulau (.pindahpulau) 4 pulau, pool ikan per pulau, gate pulau angel & demon
 c71650c balance: luck rod puluhan ribu diturunkan, cap 4500-5000
