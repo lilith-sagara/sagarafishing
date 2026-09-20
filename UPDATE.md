@@ -15,8 +15,8 @@ dan dijalankan dengan **pm2**.
 Fitur inti:
 - Mancing (RNG) dengan cooldown & activator, gacha rod langka, toko rod, inventory, aquarium, museum.
 - Sistem sesi **pulau**: `.pindahpulau` menentukan pool ikan (tier mana yang bisa ditangkap).
-- **Trading aset** (15 kripto & mata uang), harga di-roll ±15% tiap 15 menit.
-- Adumans price baru & `.announce` broadcast DM owner.
+- **Trading aset** (16 kripto, mata uang & komoditas sawit), harga di-roll ±1–100% tiap 15 menit.
+- Aduman anunciado pasar & `.announce` broadcast DM owner.
 - Phantom Anglers (bot NPC yang juga main).
 
 > Catatan: `package.json` masih berdeskripsi "Telegram", karena awalnya penulis memport dari
@@ -80,6 +80,9 @@ startWhatsApp()
   (`setLastSeenJid`) dan kirim broadcast ke jid simpanan itu, bukan `user_id@s.whatsapp.net`.
 - **Broadcast**: `broadcastAnnouncement` jeda 2–3 detik, flag `broadcasting`, eksklusi phantom
   `NOT (user_id BETWEEN 900000 AND 999999999)`.
+- **Trading**: `TRADING_ASSETS` (16 aset: 8 kripto, 7 mata uang, SWI sawit). `rollTradingPrices()`
+  menggerakkan tiap harga **±1–100%** per 15 menit (`dir=±1 * magnitude 1%–100%`); `ensureTradingData()`
+  memakai `INSERT OR IGNORE` agar aset baru (mis. SWI) otomatis masuk meski DB sudah berisi.
 - **Migrations**: pola `PRAGMA table_info` + `ALTER TABLE` (lihat kolom `session_island`, `rod_name`, `current_island_id`).
 
 ---
@@ -87,6 +90,8 @@ startWhatsApp()
 ## 4. Riwayat update (git log)
 
 ```
+0a39948 fitur: aset sawit SWI (Komoditas) + pergerakan harga 1-100% tiap 15 mnt
+e0649f6 docs: UPDATE.md — panduan struktur kode, riwayat update, dan kontinuitas AI
 27d2183 fitur: tambah 3 pulau level bawah (teluk, bakau, laguna)
 5231a57 fitur: sesi pulau (.pindahpulau) 4 pulau, pool ikan per pulau, gate pulau angel & demon
 c71650c balance: luck rod puluhan ribu diturunkan, cap 4500-5000
@@ -116,9 +121,9 @@ Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic
 ## 5. Cara AI berikutnya melanjutkan
 
 ### Aturan keras
-1. **Jalankan SATU proses bot saja.** Nama pm2: `sagara-fishing`.
-   `pm2 start bot.js --name sagara-fishing --cron-restart "0 */6 * * *"`. Jangan hidupkan
-   instance kedua (2 socket=sesi yang sama → WS "conflict" → DM kacau, Bad MAC).
+1. **Jalankan SATU proses bot saja.** App aktif saat ini bernama `bot`
+   (`pm2 start bot.js --name bot`). Jangan hidupkan instance kedua (2 socket=sesi yang
+   sama → WS "conflict" → DM kacau, Bad MAC). Cek selalu dengan `ps aux | grep bot\\.js`.
 2. **Jangan pernah commit/menghapus `session_wa/`** tanpa perintah eksplisit. Jika sesi error
    (`Connection Failure`/`Bad MAC`/`401`), opsi aman: `pm2 delete`, `rm -rf session_wa`,
    run, scan QR dari log (`pm2 logs sagara-fishing`), lalu kabari owner.
@@ -130,8 +135,8 @@ Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic
 6. **Alur merilis perubahan**:
    ```
    node --check <file>
-   pm2 restart sagara-fishing --update-env
-   sleep 14; pm2 logs sagara-fishing --lines 5 --nostream | grep -E "terhubung|Running"
+   pm2 restart bot --update-env
+   sleep 15; pm2 logs bot --lines 6 --nostream | grep -E "terhubung|Running"
    # uji fungsi di grup/DM (lihat log [MSG-IN]/[EVENT-UPSERT])
    rsync -a --exclude node_modules --exclude session_wa --exclude '*.db' --exclude '*.sqlite*' \
      --exclude '*.pyc' --exclude '__pycache__' --exclude venv --exclude '.env' \
