@@ -6,6 +6,14 @@ const dbPath = path.join(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
 const ANNOUNCE_FILE = path.join(__dirname, 'announce_target.json');
 
+const fmtKoin = (n) => {
+    if (n >= 0.999e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' Triliun';
+    if (n >= 0.999e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' Milyar';
+    if (n >= 0.999e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Juta';
+    if (n >= 0.999e3) return (n / 1e3).toFixed(2).replace(/\.?0+$/, '') + ' Ribu';
+    return Math.round(n).toLocaleString();
+};
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -487,7 +495,7 @@ const database = {
         if (m.user_id === buyerId) return { ok: false, msg: 'Ini museum kamu sendiri!' };
         const buyer = db.prepare('SELECT coins FROM users WHERE user_id = ?').get(buyerId);
         if (!buyer) return { ok: false, msg: 'Kamu belum terdaftar.' };
-        if (buyer.coins < m.price) return { ok: false, msg: `Koin kamu kurang! Butuh *${m.price.toLocaleString()}*.` };
+        if (buyer.coins < m.price) return { ok: false, msg: `Koin kamu kurang! Butuh *${fmtKoin(m.price)}*.` };
         const ownerName = db.prepare('SELECT username FROM users WHERE user_id = ?').get(m.user_id);
         const fish = db.prepare(`
             SELECT m.id, m.user_id, m.price, i.weight, f.name, f.emoji, f.tier, f.tier_name
@@ -709,7 +717,7 @@ const database = {
         const total = Math.round(amount * a.price);
         const user = db.prepare('SELECT coins FROM users WHERE user_id = ?').get(userId);
         if (!user) return { ok: false, msg: 'Kamu belum terdaftar.' };
-        if (user.coins < total) return { ok: false, msg: `Koin kurang! Butuh *${total.toLocaleString()} Koin* (${amount} × ${a.price.toLocaleString()}).` };
+        if (user.coins < total) return { ok: false, msg: `Koin kurang! Butuh *${fmtKoin(total)} Koin* (${amount} × ${fmtKoin(a.price)}).` };
         const held = db.prepare('SELECT amount FROM user_assets WHERE user_id = ? AND symbol = ?').get(userId, sym);
         const newAmount = (held ? held.amount : 0) + amount;
         if (newAmount > TRADING_CAP) return { ok: false, msg: `Maksimal 1.000.000 unit *${sym}* per pemain.` };
@@ -750,7 +758,7 @@ const database = {
         richUsers.forEach(user => {
             const newCoins = Math.max(0, user.coins - taxAmount);
             db.prepare('UPDATE users SET coins = ? WHERE user_id = ?').run(newCoins, user.user_id);
-            console.log(`💸 [TAX SYSTEM] User ${user.username} (${user.coins.toLocaleString()} Koin) terkena pajak otomatis -500 Juta Koin! Sisa: ${newCoins.toLocaleString()}`);
+            console.log(`💸 [TAX SYSTEM] User ${user.username} (${fmtKoin(user.coins)} Koin) terkena pajak otomatis -500 Juta Koin! Sisa: ${fmtKoin(newCoins)}`);
         });
         return richUsers.length;
     }

@@ -86,6 +86,11 @@ startWhatsApp()
   otomatis masuk meski DB sudah berisi. Tampilan `.trading` mengelompokkan `['Komoditas','Mata Uang','Kripto']`
   — **jika menambah type/aset baru, pastikan tipenya masuk ke array `groups` di bot.js** (bug: SWI pernah
   tak tampil karena type 'Komoditas' tidak ada di groups). Order harga: Komoditas → Mata Uang → Kripto.
+- **fmtKoin (display uang)**: dipakai di SEMUA pesan yang menampilkan nominal koin (top menu, `.profile`,
+  `.rank`, `.toko`, `.belilevel`, `.belipulau`, `.museum`, `.trading` (Tunai/Aset & transaksi), `.activator`,
+  `.jual`, `.jualjenisikan`, `.pindahpulau`, pesan error DB). Aturan: Triliun/Milyar/Juta/Ribu jika
+  `n >= 0.999×unit` (agar `999999→1 Juta`, bukan `1000 Ribu`), di bawah itu angka bulat. Ada salinan
+  `fmtKoin` di `bot.js` & `database.js` — **jika diubah, ubah keduanya**.
 - **Migrations**: pola `PRAGMA table_info` + `ALTER TABLE` (lihat kolom `session_island`, `rod_name`, `current_island_id`).
 
 ---

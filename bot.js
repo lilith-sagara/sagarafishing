@@ -21,8 +21,8 @@ function getMenuText(user) {
 
 ╭╮ 🔍 INFO PEMANCING
 ││ 🧑 Nama      : *${user.username}*
-││ 💰 Koin      : ${user.coins.toLocaleString()}
-││ 💎 Aset      : ${assetVal.toLocaleString()}
+││ 💰 Koin      : ${fmtKoin(user.coins)}
+││ 💎 Aset      : ${fmtKoin(assetVal)}
 ││ 🆙 Level     : ${user.level}
 ││ 🎣 Pancingan : ${activeRod?.name || 'Rod Tier ' + (user.rod_tier || 1)}
 ││ 🎒 Ikan      : ${invCount} ekor
@@ -55,6 +55,14 @@ const fmtPrice = (n) => {
     if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T';
     if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M';
     if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Jt';
+    return Math.round(n).toLocaleString();
+};
+
+const fmtKoin = (n) => {
+    if (n >= 0.999e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' Triliun';
+    if (n >= 0.999e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' Milyar';
+    if (n >= 0.999e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Juta';
+    if (n >= 0.999e3) return (n / 1e3).toFixed(2).replace(/\.?0+$/, '') + ' Ribu';
     return Math.round(n).toLocaleString();
 };
 
@@ -244,11 +252,10 @@ async function startWhatsApp() {
                 const assetVal = db.getAssetValue(userId);
                 const totalNet = user.coins + assetVal;
                 const myAssets = db.getAssetValue ? db.getUserAssets(userId) : [];
-                let txt = `┌───「 *PROFIL PEMANCING* 」───┐\n│ 👤 *Nama:* ${user.username}\n│ 💰 *Tunai:* ${user.coins.toLocaleString()} Koin\n│ 💎 *Aset:* ${assetVal.toLocaleString()} Koin\n│ 📊 *Total Harta:* ${totalNet.toLocaleString()} Koin\n│ 🆙 *Level:* ${user.level}\n│ 🎣 *Rod Tier:* ${user.rod_tier || 1}\n│ 📍 *Pulau:* ${db.getSessionIsland(db.getSessionIslandKey(userId)).name}\n└────────────────────────┘\n`;
+                let txt = `┌───「 *PROFIL PEMANCING* 」───┐\n│ 👤 *Nama:* ${user.username}\n│ 💰 *Tunai:* ${fmtKoin(user.coins)} Koin\n│ 💎 *Aset:* ${fmtKoin(assetVal)} Koin\n│ 📊 *Total Harta:* ${fmtKoin(totalNet)} Koin\n│ 🆙 *Level:* ${user.level}\n│ 🎣 *Rod Tier:* ${user.rod_tier || 1}\n│ 📍 *Pulau:* ${db.getSessionIsland(db.getSessionIslandKey(userId)).name}\n└────────────────────────┘\n`;
                 if (myAssets.length > 0) {
-                    const fmtA = (n) => { if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T'; if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M'; if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Jt'; return Math.round(n).toLocaleString(); };
                     txt += `┌───「 💼 ASET KAMU 」───┐\n`;
-                    myAssets.forEach(a => txt += `│ 🎯 *${a.name}*\n│    (${a.symbol}) ${a.amount} unit = ${fmtA(a.value)} Koin\n`);
+                    myAssets.forEach(a => txt += `│ 🎯 *${a.name}*\n│    (${a.symbol}) ${a.amount} unit = ${fmtKoin(a.value)} Koin\n`);
                     txt += `└────────────────────┘\n`;
                 }
                 txt += `💡 Pelajari pasar: *.trading*`;
@@ -282,17 +289,17 @@ async function startWhatsApp() {
                     const rod = RODS.find(r => r.tier === tier);
                     if (!rod || !rod.price) return sock.sendMessage(from, { text: `❌ Pancingan tier ${tier} tidak bisa dibeli.` }, { quoted: m });
                     if (owned.some(o => o.rod_tier === tier)) return sock.sendMessage(from, { text: `❌ Kamu sudah punya *${rod.name}*.` }, { quoted: m });
-                    if (user.coins < rod.price) return sock.sendMessage(from, { text: `❌ Kurang Koin! Butuh *${rod.price.toLocaleString()}*.` }, { quoted: m });
+                    if (user.coins < rod.price) return sock.sendMessage(from, { text: `❌ Kurang Koin! Butuh *${fmtKoin(rod.price)}*.` }, { quoted: m });
                     db.updateCoins(userId, -rod.price);
                     db.addRod(userId, tier, rod.name);
                     db.updateRodTier(userId, tier);
-                    return sock.sendMessage(from, { text: `✅ Membeli *${rod.name}* seharga *${rod.price.toLocaleString()} Koin*!\n🎣 Otomatis dipasang.` }, { quoted: m });
+                    return sock.sendMessage(from, { text: `✅ Membeli *${rod.name}* seharga *${fmtKoin(rod.price)} Koin*!\n🎣 Otomatis dipasang.` }, { quoted: m });
                 }
                 const buyable = RODS.filter(r => r.price > 0);
                 let txt = `┌───「 🏪 TOKO PANCINGAN 」───┐\n`;
                 buyable.slice(0, 26).forEach(r => {
                     const ownedMark = owned.some(o => o.rod_tier === r.tier) ? ' ✅' : '';
-                    txt += `│ ${r.tier}. ${r.name} — ${r.price.toLocaleString()}${ownedMark}\n`;
+                    txt += `│ ${r.tier}. ${r.name} — ${fmtKoin(r.price)}${ownedMark}\n`;
                 });
                 txt += `└──────────────────────────┘\n\n💡 *Beli:* .toko <tier>`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
@@ -300,10 +307,10 @@ async function startWhatsApp() {
             if (cmd === 'belilevel') {
                 const n = parseInt(param) || 1;
                 const cost = n * (user.level + 1) * 500000;
-                if (user.coins < cost) return sock.sendMessage(from, { text: `❌ Kurang Koin! Butuh *${cost.toLocaleString()}* untuk ${n} level.` }, { quoted: m });
+                if (user.coins < cost) return sock.sendMessage(from, { text: `❌ Kurang Koin! Butuh *${fmtKoin(cost)}* untuk ${n} level.` }, { quoted: m });
                 db.updateCoins(userId, -cost);
                 db.updateLevel(userId, user.level + n);
-                return sock.sendMessage(from, { text: `🆙 Naik level *+${n}* -> Level ${user.level + n}!\n💰 -${cost.toLocaleString()} Koin` }, { quoted: m });
+                return sock.sendMessage(from, { text: `🆙 Naik level *+${n}* -> Level ${user.level + n}!\n💰 -${fmtKoin(cost)} Koin` }, { quoted: m });
             }
             if (cmd === 'belipulau') {
                 const islands = db.getIslands();
@@ -313,7 +320,7 @@ async function startWhatsApp() {
                     const island = islands.find(i => i.id === id);
                     if (!island) return sock.sendMessage(from, { text: `❌ Pulau ${id} tidak ditemukan.` }, { quoted: m });
                     if (ownedIslands.includes(id)) return sock.sendMessage(from, { text: `❌ Pulau ini sudah kamu beli.` }, { quoted: m });
-                    if (user.coins < island.price) return sock.sendMessage(from, { text: `❌ Kurang Koin! ${island.name} butuh *${island.price.toLocaleString()}*.` }, { quoted: m });
+                    if (user.coins < island.price) return sock.sendMessage(from, { text: `❌ Kurang Koin! ${island.name} butuh *${fmtKoin(island.price)}*.` }, { quoted: m });
                     db.updateCoins(userId, -island.price);
                     db.buyIsland(userId, id);
                     db.setIsland(userId, id);
@@ -323,19 +330,12 @@ async function startWhatsApp() {
                 let txt = `┌───「 🏝️ TOKO PULAU 」───┐\n`;
                 islands.forEach(i => {
                     const mark = ownedIslands.includes(i.id) ? ' ✅' : '';
-                    txt += `│ ${i.id}. ${i.name} — ${i.price.toLocaleString()} (+${i.luckBonus} Luck)${mark}\n`;
+                    txt += `│ ${i.id}. ${i.name} — ${fmtKoin(i.price)} (+${i.luckBonus} Luck)${mark}\n`;
                 });
                 txt += `└────────────────────────┘\n\n💡 *Beli:* .belipulau <id>`;
                 return sock.sendMessage(from, { text: txt }, { quoted: m });
             }
             if (cmd === 'rank') {
-                const fmtCoins = (n) => {
-                    if (n >= 1e15) return (n / 1e15).toFixed(2).replace(/\.?0+$/, '') + ' Ku';
-                    if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T';
-                    if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M';
-                    if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Jt';
-                    return n.toLocaleString();
-                };
                 const medals = ['🥇', '🥈', '🥉'];
                 const top = db.getLeaderboard(10);
                 let txt = `┌───「 🏆 LEADERBOARD SAGARA 」───┐\n`;
@@ -344,8 +344,8 @@ async function startWhatsApp() {
                 top.forEach((u, i) => {
                     const medal = medals[i] || `#${i + 1}`;
                     txt += `│ ${medal} *${u.username}*\n`;
-                    txt += `│    💰 ${fmtCoins(u.coins + u.asset_value)}   🆙 Lv ${u.level}\n`;
-                    txt += `│    💵 ${fmtCoins(u.coins)} + 💎 ${fmtCoins(u.asset_value)}\n`;
+                    txt += `│    💰 ${fmtKoin(u.coins + u.asset_value)}   🆙 Lv ${u.level}\n`;
+                    txt += `│    💵 ${fmtKoin(u.coins)} + 💎 ${fmtKoin(u.asset_value)}\n`;
                     txt += `│    🎣 Rod T${u.rod_tier}   🐟 ${u.total_catches.toLocaleString()}\n`;
                     txt += `├───────────────────────────────┤\n`;
                 });
@@ -362,7 +362,7 @@ async function startWhatsApp() {
                     if (!invId || !price || price < 1) return sock.sendMessage(from, { text: `📸 *Pasang ke Museum:*\n\nCara: *.museum pasang <id> <harga>*\nContoh: *.museum pasang 12 500000*\n\nAmbil <id> dari daftar *.inventory*.` }, { quoted: m });
                     const r = db.addMuseumItem(userId, invId, price);
                     if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
-                    return sock.sendMessage(from, { text: `✅ Ikan berhasil dipamerkan di museummu! 🏛️\n💰 Harga: *${price.toLocaleString()} Koin*` }, { quoted: m });
+                    return sock.sendMessage(from, { text: `✅ Ikan berhasil dipamerkan di museummu! 🏛️\n💰 Harga: *${fmtKoin(price)} Koin*` }, { quoted: m });
                 }
                 if (sub === 'lepas') {
                     const id = parseInt(String(args[2] || '').replace(/[^0-9]/g, ''), 10);
@@ -390,14 +390,14 @@ async function startWhatsApp() {
                 let txt = `◈━━━━━━━━ 🏛️ MUSEUM ━━━━━━━━◈\n`;
                 txt += `│ ✨ Pemilik  : *${targetName}*\n`;
                 txt += `│ 🖼️ Koleksi   : ${items.length} ikan\n`;
-                if (items.length > 0) txt += `│ 💰 Nilai total: ${items.reduce((s, i) => s + i.price, 0).toLocaleString()} Koin\n`;
+                if (items.length > 0) txt += `│ 💰 Nilai total: ${fmtKoin(items.reduce((s, i) => s + i.price, 0))} Koin\n`;
                 txt += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
                 if (items.length === 0) txt += `│   (Belum ada ikan dipamerkan)\n`;
                 items.forEach((it, i) => {
                     const num = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'][i] || `${i + 1}.`;
                     txt += `│ ${num} ${it.emoji} *${it.name}*\n`;
                     txt += `│      💠 Tier ${it.tier} · ${it.tier_name}\n`;
-                    txt += `│      ⚖️ ${it.weight}kg   💎 ${it.price.toLocaleString()} Koin\n`;
+                    txt += `│      ⚖️ ${it.weight}kg   💎 ${fmtKoin(it.price)} Koin\n`;
                     txt += `│      🆔 Kode: MB-${it.id}\n`;
                     txt += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
                 });
@@ -420,21 +420,21 @@ async function startWhatsApp() {
                     const qty = args[3] === undefined ? 1 : Math.floor(parseFloat(args[3]));
                     const r = db.buyAsset(userId, sym, qty);
                     if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
-                    return sock.sendMessage(from, { text: `💹 *BELI ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 Total: -${r.total.toLocaleString()} Koin (${r.price.toLocaleString()}/unit)\n💰 Sisa saldo: ${(user.coins - r.total).toLocaleString()} Koin` }, { quoted: m });
+                    return sock.sendMessage(from, { text: `💹 *BELI ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 Total: -${fmtKoin(r.total)} Koin (${fmtPrice(r.price)}/unit)\n💰 Sisa saldo: ${fmtKoin(user.coins - r.total)} Koin` }, { quoted: m });
                 }
                 if (sub === 'jual') {
                     const all = (args[3] || '').toLowerCase() === 'semua';
                     const qty = args[3] === undefined ? 1 : (all ? Infinity : Math.floor(parseFloat(args[3])));
                     const r = db.sellAsset(userId, sym, qty);
                     if (!r.ok) return sock.sendMessage(from, { text: `❌ ${r.msg}` }, { quoted: m });
-                    return sock.sendMessage(from, { text: `💹 *JUAL ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 +${r.total.toLocaleString()} Koin (${r.price.toLocaleString()}/unit)` }, { quoted: m });
+                    return sock.sendMessage(from, { text: `💹 *JUAL ASET BERHASIL!*\n💠 ${r.amount} × *${r.name} (${r.symbol})*\n💰 +${fmtKoin(r.total)} Koin (${fmtPrice(r.price)}/unit)` }, { quoted: m });
                 }
                 const prices = db.getAssetPrices();
                 const myAssets = db.getUserAssets(userId);
                 const assetValue = db.getAssetValue(userId);
                 let txt = `┌───「 📈 PASAR TRADING 」───┐\n`;
-                txt += `│ 💰 Tunai : ${fmt(user.coins)} Koin\n`;
-                txt += `│ 💎 Aset  : ${fmt(assetValue)} Koin   (${myAssets.length} jenis)\n`;
+                txt += `│ 💰 Tunai : ${fmtKoin(user.coins)} Koin\n`;
+                txt += `│ 💎 Aset  : ${fmtKoin(assetValue)} Koin   (${myAssets.length} jenis)\n`;
                 txt += `├──── 💼 PORTFOLIO KAMU ──────┤\n`;
                 if (myAssets.length === 0) {
                     txt += `│ (Kosong — coba: .trading beli BTC 1)\n`;
@@ -480,11 +480,11 @@ async function startWhatsApp() {
                 const minutes = parseInt(param, 10);
                 const is5 = minutes === 5;
                 const cost = is5 ? 5000000 : 25000000;
-                if (user.coins < cost) return sock.sendMessage(from, { text: `❌ Kurang Koin! Butuh *${cost.toLocaleString()} Koin* untuk Activator.\n${is5 ? 'Varian lain: *.activator* (30 mnt · 25 Jt)' : 'Varian lain: *.activator 5* (5 mnt · 5 Jt)'}` }, { quoted: m });
+                if (user.coins < cost) return sock.sendMessage(from, { text: `❌ Kurang Koin! Butuh *${fmtKoin(cost)} Koin* untuk Activator.\n${is5 ? 'Varian lain: *.activator* (30 mnt · 25 Jt)' : 'Varian lain: *.activator 5* (5 mnt · 5 Jt)'}` }, { quoted: m });
                 db.updateCoins(userId, -cost);
                 const expires = db.activateCooldownBoost(userId, is5 ? 5 : 30);
                 const mins = Math.round((expires - Date.now()) / 60000);
-                return sock.sendMessage(from, { text: `⚡ *COOLDOWN ACTIVATOR AKTIF!*\n💰 -${cost.toLocaleString()} Koin\n⏱️ Cooldown semua rod → *1 detik* selama *${mins} menit*.` }, { quoted: m });
+                return sock.sendMessage(from, { text: `⚡ *COOLDOWN ACTIVATOR AKTIF!*\n💰 -${fmtKoin(cost)} Koin\n⏱️ Cooldown semua rod → *1 detik* selama *${mins} menit*.` }, { quoted: m });
             }
             if (cmd === 'inventory' || cmd === 'bag' || /^inventory\d+$/.test(cmd) || /^bag\d+$/.test(cmd)) {
                 const perPage = 15;
@@ -511,7 +511,7 @@ async function startWhatsApp() {
                 else if (param === 'biasa') inv.items.filter(it => it.tier_name === 'Biasa').forEach(it => { const r = db.sellFish(userId, it.id); if (r) { soldCount++; totalCoins += r.price; }});
                 else if (param === 'legend') inv.items.filter(it => it.tier >= 7).forEach(it => { const r = db.sellFish(userId, it.id); if (r) { soldCount++; totalCoins += r.price; }});
                 else { const res = db.sellFish(userId, parseInt(param)); if (res) { soldCount = 1; totalCoins = res.price; } }
-                return sock.sendMessage(from, { text: soldCount > 0 ? `✅ Berhasil jual *${soldCount}* ikan senilai *${totalCoins.toLocaleString()} Koin*!` : `❌ Ikan tidak ditemukan.` }, { quoted: m });
+                return sock.sendMessage(from, { text: soldCount > 0 ? `✅ Berhasil jual *${soldCount}* ikan senilai *${fmtKoin(totalCoins)} Koin*!` : `❌ Ikan tidak ditemukan.` }, { quoted: m });
             }
             if (cmd === 'jualjenisikan' || (cmd === 'jualjenis' && (args[1] || '') === 'ikan')) {
                 const n = (cmd === 'jualjenisikan' ? param : args.slice(2).join(' ')).trim();
@@ -519,13 +519,12 @@ async function startWhatsApp() {
                 const r = db.sellFishByName(userId, n);
                 if (!r.ok) return sock.sendMessage(from, { text: `❌ Ikan yang kamu cari *${n}* tidak ada di inventory kamu.\nCek daftar ikanmu: *.inventory*` }, { quoted: m });
                 const namaTampil = r.names.join(', ');
-                return sock.sendMessage(from, { text: `✅ Terjual *${r.count} ekor* ikan *${namaTampil}*!\n💰 Total: +${r.total.toLocaleString()} Koin` }, { quoted: m });
+                return sock.sendMessage(from, { text: `✅ Terjual *${r.count} ekor* ikan *${namaTampil}*!\n💰 Total: +${fmtKoin(r.total)} Koin` }, { quoted: m });
             }
             if (cmd === 'pindahpulau') {
                 const islands = db.getSessionIslands();
                 const cur = db.getSessionIslandKey(userId);
                 const net = db.getNetWorth(userId);
-                const fmtNW = (n) => { if (n >= 1e15) return (n / 1e15).toFixed(2).replace(/\.?0+$/, '') + ' T'; if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T'; if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M'; if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' Jt'; return Math.round(n).toLocaleString(); };
                 if (!param) {
                     let t = `┌───「 🏝️ SESI PULAU 」───┐\n📍 Kamu sekarang di: *${db.getSessionIsland(cur).name}*\n\n`;
                     islands.forEach(isl => {
@@ -534,7 +533,7 @@ async function startWhatsApp() {
                         t += `   🎣 Ikan tier: ${isl.tiers.join('-')}\n`;
                         const reqs = [];
                         if (isl.reqLevel) reqs.push(`Level ${isl.reqLevel.toLocaleString()}`);
-                        if (isl.reqNetWorth) reqs.push(`Harta ${fmtNW(isl.reqNetWorth)}`);
+                        if (isl.reqNetWorth) reqs.push(`Harta ${fmtKoin(isl.reqNetWorth)}`);
                         if (isl.reqRodTiers.length) reqs.push(`Rod seri ${isl.reqRodTiers[0]}-${isl.reqRodTiers[isl.reqRodTiers.length - 1]}`);
                         t += `   🔒 ${reqs.length ? reqs.join(' + ') : 'Bebas'}\n`;
                     });
@@ -546,7 +545,7 @@ async function startWhatsApp() {
                 if (isl.key === cur) return sock.sendMessage(from, { text: `✅ Kamu sudah di *${isl.name}*.` }, { quoted: m });
                 const unmet = [];
                 if (user.level < isl.reqLevel) unmet.push(`Level minimal ${isl.reqLevel.toLocaleString()} (kamu ${user.level})`);
-                if (net < isl.reqNetWorth) unmet.push(`Total harta minimal ${fmtNW(isl.reqNetWorth)} (kamu ${fmtNW(net)})`);
+                if (net < isl.reqNetWorth) unmet.push(`Total harta minimal ${fmtKoin(isl.reqNetWorth)} (kamu ${fmtKoin(net)})`);
                 if (isl.reqRodTiers.length && !db.ownsRodTier(userId, isl.reqRodTiers)) unmet.push(`Butuh rod seri tier ${isl.reqRodTiers[0]}-${isl.reqRodTiers[isl.reqRodTiers.length - 1]}`);
                 if (unmet.length) {
                     let t = `⛔ *Tidak bisa pindah ke ${isl.name}.*\nSyarat belum terpenuhi:\n`;
