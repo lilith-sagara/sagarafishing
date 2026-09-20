@@ -106,6 +106,9 @@ startWhatsApp()
 ## 4. Riwayat update (git log)
 
 ```
+0707c2a fitur: .misi & .claim misi1 — Penguasa Langit & Bumi (rod tier 40 luck 8000%, potong 50 Kuadriliun)
+8487731 fitur: nerf harga Angel&Demon ke 1-2jt, +18 ikan demon (3 Giant langka 1T rate 1.67e-12, teks spesial)
+9264ccc fitur: nominal koin dibaca Ribu/Juta/Milyar/Triliun di semua fitur (fmtKoin)
 9347d40 fitur: 4 mata uang baru (TWD, CNY, KRW, INR) + .trading tampilkan KOMODITAS (SWI) di atas
 0a39948 fitur: aset sawit SWI (Komoditas) + pergerakan harga 1-100% tiap 15 mnt
 e0649f6 docs: UPDATE.md — panduan struktur kode, riwayat update, dan kontinuitas AI
