@@ -2,10 +2,13 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const DB = require('./database.js');
+const aiChat = require('./ai_chat.js');
 
 const PORT = parseInt(process.env.MONITOR_PORT || '3001', 10);
 const MAX_EVENTS = 200;
 const AUTORELOAD_MS = 4000;
+const AI_HITS = new Map();
+const AI_COOLDOWN_MS = 10000;
 
 const events = [];
 const clients = new Set();
@@ -77,8 +80,45 @@ function sendPreamble(ev) {
     return `data: ${JSON.stringify(ev)}\n\n`;
 }
 
+function handleAiEndpoint(req, res) {
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        });
+        return res.end();
+    }
+    const ip = (req.socket && req.socket.remoteAddress) || 'x';
+    const now = Date.now();
+    if (now - (AI_HITS.get(ip) || 0) < AI_COOLDOWN_MS) {
+        return sendRes(res, 429, { ok: false, msg: 'Sabar ya, tunggu ~10 detik antara pertanyaan 😌' });
+    }
+    const answer = (q) => {
+        if (!q || !q.trim()) return sendRes(res, 400, { ok: false, msg: 'Pertanyaan kosong nggih.' });
+        console.log('🤖 [NG-AI-WEB] q=' + String(q).trim().slice(0, 100));
+        aiChat.NgawiAI(String(q).trim().slice(0, 2000)).then(r => {
+            const text = r && r.status ? (r.answer || '').replace(/\*\*(.+?)\*\*/g, '*$1*').trim() : '';
+            const reply = text ? text.slice(0, 4000) : ('⚠️ Ngawi AI lagi sibuk (err ' + (r && r.code) + '), coba lagi sebentar ya.');
+            sendRes(res, 200, { ok: !!text, answer: reply });
+        }).catch(e => sendRes(res, 200, { ok: false, answer: '⛔ Ngawi AI error: ' + String(e.message).slice(0, 200) }));
+    };
+    if (req.method === 'GET') {
+        let q = null;
+        try { q = new URL(req.url, 'http://ngawi.local').searchParams.get('q'); } catch (e) {}
+        return answer(q);
+    }
+    let body = '';
+    req.on('data', c => { body += c; if (body.length > 8192) req.destroy(); });
+    req.on('end', () => {
+        try { const j = JSON.parse(body); answer(j && j.question); }
+        catch (e) { answer(null); }
+    });
+}
+
 const server = http.createServer((req, res) => {
     const url = (req.url || '/').split('?')[0];
+    if (url === '/api/ai') return handleAiEndpoint(req, res);
     if (url.startsWith('/api/')) return handleApi(url, res);
     if (url === '/events' || url === '/stream') {
         res.writeHead(200, {
@@ -100,6 +140,11 @@ const server = http.createServer((req, res) => {
     if (url === '/' || url === '/index.html') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(HTML);
+        return;
+    }
+    if (url === '/ngawi' || url === '/ngawiaI') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(NGAWI_HTML);
         return;
     }
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -276,6 +321,135 @@ function pollPrices(){fetch('/api/prices').then(r=>r.json()).then(j=>updPrices(j
 setInterval(pollStats,5000);setInterval(pollPrices,15000);pollStats();pollPrices();
 setInterval(()=>{const d=new Date();const p=n=>String(n).padStart(2,'0');document.getElementById('clock').textContent=p(d.getHours())+" : "+p(d.getMinutes())+" : "+p(d.getSeconds());},1000);
 (()=>{let t=[];setInterval(()=>{fetch('/api/prices').then(r=>r.json()).then(j=>{if(j&&j.prices){t=j.prices;const c=t.map(p=>p.symbol+' '+fmtPn(p.price)+(p.changePct>=0?' ▲':' ▼')).join('   •   ');document.getElementById('ticker').textContent=c;}}).catch(()=>{});},20000);})();
+</script>
+</body>
+</html>`;
+
+const NGAWI_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ngawiAI — Asisten Cerdas dari Bumi Ngawi</title>
+<style>
+:root{
+  --bg:#f6f9f8; --card:#ffffff; --line:#e3ece9; --ink:#0b0b0b;
+  --teal:#12b392; --teal-d:#0e8c72; --teal-light:#e5f5f1;
+  --dim:#5c6b66; --faint:#94a39e;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:radial-gradient(900px 500px at 85% -10%, rgba(18,179,146,.14), transparent 60%),
+             radial-gradient(700px 400px at -10% 110%, rgba(18,179,146,.10), transparent 55%),
+             var(--bg);
+  color:var(--ink);
+  font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex; flex-direction:column;
+}
+.wrap{max-width:1040px;margin:0 auto;padding:26px 22px 40px;width:100%}
+header{display:flex;align-items:center;gap:12px;padding:6px 0 4px}
+.logo{font-size:34px;font-weight:900;letter-spacing:-.03em}
+.logo .b{color:#000}
+.logo .t{color:var(--teal-d)}
+.tag{font-size:13px;color:var(--dim);margin-top:6px}
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:34px;align-items:start;margin-top:34px}
+@media(max-width:820px){.hero{grid-template-columns:1fr}}
+.left h1{font-size:38px;line-height:1.25;font-weight:800;letter-spacing:-.02em;margin-bottom:14px}
+.left h1 .t{color:var(--teal-d)}
+.left p{color:var(--dim);font-size:16px;max-width:52ch;margin-bottom:18px}
+.blurb{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.blurb div{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:14.5px}
+.blurb .ic{color:var(--teal-d);font-weight:800;flex-shrink:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(11,11,11,.06);overflow:hidden}
+.chat-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--teal-light)}
+.chat-head .av{width:34px;height:34px;border-radius:50%;background:var(--teal-d);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px}
+.chat-head b{font-size:14.5px}
+.chat-head small{display:block;color:var(--dim);font-size:11.5px;font-weight:400}
+#chat{height:380px;overflow-y:auto;padding:16px 16px 8px;display:flex;flex-direction:column;gap:12px}
+#chat::-webkit-scrollbar{width:7px}
+#chat::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.bub{max-width:82%;padding:9px 13px;border-radius:14px;font-size:14px;white-space:pre-wrap;word-break:break-word;animation:pop .18s ease}
+@keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.u{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px}
+.a{align-self:flex-start;background:#f0f5f3;color:var(--ink);border-bottom-left-radius:4px}
+.a.typing{color:var(--dim);font-style:italic}
+.inp{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+.inp input{flex:1;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:14px;font-family:inherit;outline:none;background:#fbfdfc}
+.inp input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(18,179,146,.12)}
+.inp button{border:none;border-radius:12px;background:var(--teal-d);color:#fff;font-size:14px;font-weight:700;padding:0 18px;cursor:pointer;font-family:inherit}
+.inp button:hover{background:#0b7a63}
+.inp button:disabled{opacity:.55;cursor:default}
+.sugg{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+.sugg span{font-size:12.5px;border:1px solid var(--line);border-radius:99px;padding:5px 12px;color:var(--dim);cursor:pointer;background:var(--card)}
+.sugg span:hover{border-color:var(--teal);color:var(--teal-d)}
+footer{margin-top:38px;text-align:center;color:var(--faint);font-size:12.5px}
+footer b{color:var(--teal-d)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="b">ngawi</span><span class="t">AI</span></div>
+    <div class="tag">Asisten cerdas dari Bumi Ngawi</div>
+  </header>
+
+  <div class="hero">
+    <div class="left">
+      <h1>Sugeng rawuh! Aku <span class="t">ngawiAI</span>, <br>siap mbantu apa wae.</h1>
+      <p>Monggo, tanya apa saja — dari urusan teknologi, belajar, tugas sekolah, sampai ngobrol santai. Karone santai, jawaban tetep jelas lan bener.</p>
+      <div class="blurb">
+        <div><span class="ic">✓</span><span><b>Cepat &amp; ringkas</b> — jawaban padat, ga bertele-tele.</span></div>
+        <div><span class="ic">✓</span><span><b>Bahasa Indonesia</b> dengan sentuhan logat Ngawi yang hangat.</span></div>
+        <div><span class="ic">✓</span><span><b>Gratis</b> — nggak butuh API key, nggak bayar.</span></div>
+      </div>
+      <div class="sugg">
+        <span>Apa itu Ngawi?</span>
+        <span>Jelasin cara kerja AI</span>
+        <span>Bikin puisi tentang sawah</span>
+        <span>Tips hemat di kampung</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="chat-head">
+        <div class="av">Ng</div>
+        <div><b>ngawiAI</b><small>online • balas cepat</small></div>
+      </div>
+      <div id="chat"></div>
+      <form class="inp" id="form">
+        <input id="q" placeholder="Tulis pertanyaan… (enter untuk kirim)" autocomplete="off">
+        <button id="send" type="submit">Kirim</button>
+      </form>
+    </div>
+  </div>
+
+  <footer>dibuat dengan <b>ngawiAI</b> — Sagara Fishing · ngawi · Jawa Timur</footer>
+</div>
+<script>
+const chat=document.getElementById('chat'),q=document.getElementById('q'),btn=document.getElementById('send');
+function add(msg,who){
+  const d=document.createElement('div');d.className='bub '+(who==='u'?'u':'a');d.textContent=msg;chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
+}
+add('Nderek langkung, aku ngawiAI. Monggo takon apa wae, nggih!','a');
+const SUGS=['Apa itu Ngawi?','Jelasin cara kerja AI','Bikin puisi tentang sawah','Tips hemat di kampung'];
+document.querySelectorAll('.sugg span').forEach(s=>s.addEventListener('click',()=>{q.value=s.textContent;ask();}));
+async function ask(){
+  const text=q.value.trim();if(!text)return;
+  q.value='';btn.disabled=true;
+  add(text,'u');
+  const typing=document.createElement('div');typing.className='bub a typing';typing.textContent='lagi mikir…';chat.appendChild(typing);chat.scrollTop=chat.scrollHeight;
+  try{
+    const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:text})});
+    const j=await r.json();
+    typing.remove();
+    const msg=(j&&j.ok)?j.answer:(j&&j.msg||'⚠️ error, coba lagi ya.');
+    add(msg,'a');
+  }catch(e){typing.remove();add('⚠️ jaringan error: '+e.message,'a');}
+  btn.disabled=false;chat.focus&&q.focus();
+}
+document.getElementById('form').addEventListener('submit',e=>{e.preventDefault();ask();});
 </script>
 </body>
 </html>`;

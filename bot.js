@@ -74,13 +74,41 @@ function botMentionJids(sock) {
     return set;
 }
 
+async function botMentioned(sock, from, mentions, rawText) {
+    const logDbg = (msg) => console.log('[NGAWI-DEBUG] ' + msg);
+    const fromText = Array.from((rawText || '').match(/@\d+/g) || []).map(s => s.slice(1));
+    const digits = new Set([...(mentions || []), ...fromText].map(j => String(j).replace(/[^0-9]/g, '')).filter(Boolean));
+    if (digits.size === 0) { logDbg('no mention digits (mentions=' + JSON.stringify(mentions) + ')'); return false; }
+    const atSet = botMentionJids(sock);
+    if ((mentions || []).some(j => atSet.has(j)) || digits.has(BOT_NUMBER)) { logDbg('match statis/BOT_NUMBER'); return true; }
+    const ownRaw = ((sock && sock.user && sock.user.id) || '');
+    const ownDigits = String(ownRaw.split(':')[0]).replace(/[^0-9]/g, '');
+    if (ownDigits && digits.has(ownDigits)) { logDbg('match sock.user.id=' + ownDigits); return true; }
+    try {
+        const meta = await sock.groupMetadata(from);
+        const roster = (meta.participants || []).map(p => [p.id, p.lid])
+            .flat().filter(Boolean)
+            .map(x => String(x).replace(/[^0-9]/g, ''));
+        const dedupe = new Set(roster);
+        logDbg('roster digits: ' + JSON.stringify([...dedupe].slice(0, 20)) + (dedupe.size > 20 ? '…' : ''));
+        logDbg('digits dicari: ' + JSON.stringify([...digits]));
+        if (ownDigits && !dedupe.has(ownDigits)) logDbg('PERINGATAN sock.user.id ' + ownDigits + ' tidak ada di roster');
+        if ([...digits].some(d => dedupe.has(d))) { logDbg('match roster'); return true; }
+        logDbg('sock.user.id=' + ownRaw + ' → TIDAK ada yang cocok');
+    } catch (e) {
+        logDbg('groupMetadata error: ' + e.message);
+    }
+    return false;
+}
+
 async function handleNgawiAi(sock, m, from, userId) {
     try {
         if (!from.endsWith('@g.us')) return false;
         const rawText = (m.message.conversation || m.message.extendedTextMessage?.text || '').trim();
         if (!rawText || rawText.startsWith('.')) return false;
         const mentions = m.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
-        if (!mentions.some(jid => botMentionJids(sock).has(jid) || (String(jid).includes(BOT_NUMBER)))) return false;
+        const isBot = await botMentioned(sock, from, mentions, rawText);
+        if (!isBot) return false;
         const question = rawText.replace(new RegExp("@\\d+", "g"), '').replace(/\s+/g, ' ').trim();
         const now = Date.now();
         const last = aiCooldowns.get(userId) || 0;

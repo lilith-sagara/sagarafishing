@@ -22,6 +22,8 @@ Fitur inti:
   jumlah user/tangkapan + ticker harga 20 aset. Otomatis nyala saat bot jalan.
 - **Ngawi AI**: chat AI (scrape `unlimitedai` dari backup owner) dengan persona *Ngawi AI*.
   Aktif **hanya di grup** → tag nomor bot lalu tanya. Jawaban model `chat-model-reasoning` (streaming).
+  **Website** `http://<ip-lan>:3001/ngawi` — landing page `ngawiAI` (logo: *ngawi* hitam, *AI* toska
+  hijau) dengan kotak chat yang nyambung ke endpoint `POST /api/ai` (cooldown 10 dtk/IP).
 
 > Catatan: `package.json` masih berdeskripsi "Telegram", karena awalnya penulis memport dari
 > bot Telegram (paket `telegraf` ada di dependencies tapi **tidak dipakai**). Runtime aktual
@@ -116,10 +118,14 @@ startWhatsApp()
   Nonaktifkan dengan env `MONITOR_DISABLED`.
 - **Ngawi AI**: `ai_chat.js` memakai `fetch` (Node≥22) ke `app.unlimitedai.chat/api/chat`
   (scrape tanpa key, streaming parse `{type:'delta'}`). Deteksi trigger di `handleNgawiAi` (bot.js):
-  harus grup (`@g.us`), ada `mentionedJid` yang cocok dengan jid bot (`BOT_NUMBER=6285716348564`
-  atau `sock.user.id`), dan bukan command (`.`) — teks mention `@…` dibuang sebelum dikirim ke AI.
+  harus grup (`@g.us`), ada mention yang cocok (checked via `mentionedJid` DAN digit `@…` di teks
+  terhadap `sock.user.id`, `BOT_NUMBER=6285716348564`, dan roster grup `groupMetadata` → id+LID),
+  dan bukan command (`.`) — teks mention `@…` dibuang sebelum dikirim ke AI.
   Cooldown per user 8 detik (`AI_COOLDOWN_MS`). Jawaban dipotong 4096 & `**`→`*`. Bot menjawab
   dengan identitas *Ngawi AI* (persona di `ai_chat.js`).
+- **Website ngawiAI**: route `/ngawi` di `monitor.js` (dash tetap di `/`). Endpoint AI:
+  `POST /api/ai` `{question}` / `GET /api/ai?q=` → `{ok, answer}`, CORS `*`, cooldown 10 dtk/IP
+  (`AI_COOLDOWN_MS` di monitor.js).
 - **Migrations**: pola `PRAGMA table_info` + `ALTER TABLE` (lihat kolom `session_island`, `rod_name`, `current_island_id`).
 
 ---
@@ -127,6 +133,7 @@ startWhatsApp()
 ## 4. Riwayat update (git log)
 
 ```
+3c5f2a9 fitur: website ngawiAI (/ngawi) — logo ngawi hitam + AI toska, chat AI via /api/ai, fix deteksi tag via roster+digit
 7e2dada fitur: Ngawi AI — tag bot di grup + tanya, AI jawab (scrape unlimitedai), persona Ngawi AI
 6a2e1e9 fix: trading harga tak lagi merosot ke 1-9 — mean reversion ke base + rentang [10%-300%] dari base, reset harga
 7c7f2c9 fitur: monitor dashboard live (HTTP+SSE :3001) — aktivitas realtime, statistik, harga aset
