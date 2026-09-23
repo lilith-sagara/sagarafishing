@@ -20,6 +20,8 @@ Fitur inti:
 - Phantom Anglers (bot NPC yang juga main).
 - **Live monitor dashboard** (HTTP `localhost:3001`): aktivitas realtime via SSE + statistik
   jumlah user/tangkapan + ticker harga 20 aset. Otomatis nyala saat bot jalan.
+- **Ngawi AI**: chat AI (scrape `unlimitedai` dari backup owner) dengan persona *Ngawi AI*.
+  Aktif **hanya di grup** → tag nomor bot lalu tanya. Jawaban model `chat-model-reasoning` (streaming).
 
 > Catatan: `package.json` masih berdeskripsi "Telegram", karena awalnya penulis memport dari
 > bot Telegram (paket `telegraf` ada di dependencies tapi **tidak dipakai**). Runtime aktual
@@ -40,6 +42,7 @@ Fitur inti:
 | `session_wa/` | Sesi WhatsApp (auth). **JANGAN di-commit / jangan 2 proses bersamaan.** |
 | `database.sqlite` | DB SQLite (gitignored). |
 | `monitor.js` | Live dashboard (HTTP+SSE, port 3001). Dipanggil `require` di bot.js; `push(action, user, detail, extra)` merekam event, endpoint `/` (HTML), `/api/recent`, `/api/stats`, `/api/prices`, `/events` (SSE). Butuh `DB.getUserCount`, `DB.getTotalCatches`, `DB.getAssetPrices` di database.js. |
+| `ai_chat.js` | Ngawi AI (CommonJS, adaptasi scrape `unlimitedai.js` dari backup owner). `NgawiAI(question)` → streaming POST ke `app.unlimitedai.chat/api/chat`, persona `CHARACTERS['ngawi-ai']`. Tanpa API key. Dipakai bot.js `handleNgawiAi`. |
 | `announce_target.json` | Target grup untuk announcement market (gitignored). |
 | `*.js` lain (`.seed_*`, `add_rod_lilith.js`, `update_rods.js`, `nerf_script.js`, `fix_fish_prices.js`) | Skrip sekali-jalan untuk seeding/balancing. |
 
@@ -53,8 +56,9 @@ startWhatsApp()
        ├─ ev 'connection.update' → QR print / reconnect / loggedOut
        └─ ev 'messages.upsert' → inti game:
             - skip fromMe / tanpa message
-            - db.setLastSeenJid(userId, jid)  // penting utk broadcast ke jid real (LID)
-            - parse text → cmd & param
+- db.setLastSeenJid(userId, jid)  // penting utk broadcast ke jid real (LID)
+             - handleNgawiAi(sock, m, from, userId)  // AI: grup + tag bot + non-command → jawab, return true
+             - parse text → cmd & param
             - .setann & .announce (owner) DI ATAS guard registrasi
             - guard: user harus .daftar dulu (kecuali .daftar/.setann/.announce)
             - dispatch cmd → metode db → sock.sendMessage
@@ -110,6 +114,12 @@ startWhatsApp()
   (satu proses, satu koneksi DB — jangan jalan terpisah, nanti SQLite terkunci). Hook event:
   `logAct('mancing'|'jual'|'trading'|'daftar'|'claim'|'pindahpulau'|'gacha', user, detail)`.
   Nonaktifkan dengan env `MONITOR_DISABLED`.
+- **Ngawi AI**: `ai_chat.js` memakai `fetch` (Node≥22) ke `app.unlimitedai.chat/api/chat`
+  (scrape tanpa key, streaming parse `{type:'delta'}`). Deteksi trigger di `handleNgawiAi` (bot.js):
+  harus grup (`@g.us`), ada `mentionedJid` yang cocok dengan jid bot (`BOT_NUMBER=6285716348564`
+  atau `sock.user.id`), dan bukan command (`.`) — teks mention `@…` dibuang sebelum dikirim ke AI.
+  Cooldown per user 8 detik (`AI_COOLDOWN_MS`). Jawaban dipotong 4096 & `**`→`*`. Bot menjawab
+  dengan identitas *Ngawi AI* (persona di `ai_chat.js`).
 - **Migrations**: pola `PRAGMA table_info` + `ALTER TABLE` (lihat kolom `session_island`, `rod_name`, `current_island_id`).
 
 ---
@@ -117,6 +127,7 @@ startWhatsApp()
 ## 4. Riwayat update (git log)
 
 ```
+7e2dada fitur: Ngawi AI — tag bot di grup + tanya, AI jawab (scrape unlimitedai), persona Ngawi AI
 6a2e1e9 fix: trading harga tak lagi merosot ke 1-9 — mean reversion ke base + rentang [10%-300%] dari base, reset harga
 7c7f2c9 fitur: monitor dashboard live (HTTP+SSE :3001) — aktivitas realtime, statistik, harga aset
 0707c2a fitur: .misi & .claim misi1 — Penguasa Langit & Bumi (rod tier 40 luck 8000%, potong 50 Kuadriliun)
@@ -167,12 +178,15 @@ Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic
 ## 5. Cara AI berikutnya melanjutkan
 
 ### Aturan keras
-1. **Jalankan SATU proses bot saja.** App aktif saat ini bernama `bot`
-   (`pm2 start bot.js --name bot`). Jangan hidupkan instance kedua (2 socket=sesi yang
+1. **Jalankan SATU proses bot saja.** App aktif saat ini bernama `mancing`
+   (`pm2 start bot.js --name mancing`). Jangan hidupkan instance kedua (2 socket=sesi yang
    sama → WS "conflict" → DM kacau, Bad MAC). Cek selalu dengan `ps aux | grep bot\\.js`.
+   *Catatan:* nama app pm2 pernah beda-beda antar mesin (`sagara-fishing`, `bot`, `mancing`);
+   yang valid = proses yang sedang jalan (`pm2 list`). Setelah `pm2 restart`, jalankan
+   `pm2 save` agar daftar tersimpan.
 2. **Jangan pernah commit/menghapus `session_wa/`** tanpa perintah eksplisit. Jika sesi error
-   (`Connection Failure`/`Bad MAC`/`401`), opsi aman: `pm2 delete bot`, `rm -rf session_wa`,
-   `pm2 start bot.js --name bot`, scan QR dari log (`pm2 logs bot`), lalu kabari owner.
+   (`Connection Failure`/`Bad MAC`/`401`), opsi aman: `pm2 delete mancing`, `rm -rf session_wa`,
+   `pm2 start bot.js --name mancing`, scan QR dari log (`pm2 logs mancing`), lalu kabari owner.
 3. **Owner bot**: username `lilith` (user_id `47730491674663`, jid `47730491674663@lid`).
    Nomor alternatif `6287840275933`. Command admin: `.announce`, `.fetchdm` (debug).
 4. **Jangan reply lewat PN jid** (`user_id@s.whatsapp.net`) untuk target LID — pakai jid
@@ -181,8 +195,8 @@ Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic
 6. **Alur merilis perubahan**:
    ```
    node --check <file>
-   pm2 restart bot --update-env
-   sleep 15; pm2 logs bot --lines 6 --nostream | grep -E "terhubung|Running"
+   pm2 restart mancing --update-env   # (bukan "bot"; cek "pm2 list" dulu)
+   sleep 15; pm2 logs mancing --lines 6 --nostream | grep -E "terhubung|Running"
    # uji fungsi di grup/DM (lihat log [MSG-IN]/[EVENT-UPSERT])
    rsync -a --exclude node_modules --exclude session_wa --exclude '*.db' --exclude '*.sqlite*' \
      --exclude '*.pyc' --exclude '__pycache__' --exclude venv --exclude '.env' \
@@ -211,4 +225,4 @@ Fish tier: 1 Common · 2 Uncommon · 3 Rare · 4 Epic · 5 Legendary · 6 Mythic
 
 ---
 
-*Terakhir diperbarui: 20 Sep 2026 — sesi pulau 7 pulau, trading 20 aset, broadcast LID-aware, monitor dashboard live.*
+*Terakhir diperbarui: 20 Sep 2026 — sesi pulau 7 pulau, trading 20 aset, broadcast LID-aware, monitor dashboard live, Ngawi AI (tag bot).*

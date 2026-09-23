@@ -55,6 +55,60 @@ const sleepMs = (ms) => new Promise(r => setTimeout(r, ms));
 const monitor = require('./monitor.js');
 const logAct = (a, u, d) => { try { monitor.push(a, u, d); } catch (e) {} };
 
+const aiChat = require('./ai_chat.js');
+const aiCooldowns = new Map();
+const AI_COOLDOWN_MS = 8000;
+const BOT_NUMBER = '6285716348564';
+
+function botMentionJids(sock) {
+    const set = new Set(['6285716348564@s.whatsapp.net', '6285716348564@lid']);
+    try {
+        const raw = (sock && sock.user && sock.user.id) || (sock && sock.authState && sock.authState.creds && sock.authState.creds.me && sock.authState.creds.me.id);
+        if (raw) {
+            const clean = raw.split(':')[0];
+            set.add(raw);
+            set.add(clean + '@s.whatsapp.net');
+            set.add(clean + '@lid');
+        }
+    } catch (e) {}
+    return set;
+}
+
+async function handleNgawiAi(sock, m, from, userId) {
+    try {
+        if (!from.endsWith('@g.us')) return false;
+        const rawText = (m.message.conversation || m.message.extendedTextMessage?.text || '').trim();
+        if (!rawText || rawText.startsWith('.')) return false;
+        const mentions = m.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        if (!mentions.some(jid => botMentionJids(sock).has(jid) || (String(jid).includes(BOT_NUMBER)))) return false;
+        const question = rawText.replace(new RegExp("@\\d+", "g"), '').replace(/\s+/g, ' ').trim();
+        const now = Date.now();
+        const last = aiCooldowns.get(userId) || 0;
+        if (now - last < AI_COOLDOWN_MS) return true;
+        aiCooldowns.set(userId, now);
+        try { await sock.sendPresenceUpdate('composing', from); } catch (e) {}
+        let reply;
+        if (!question) {
+            reply = '👋 Nduk/Mas/Mbak, kamu cuma nge-tag aku aja. \nKetik pertanyaannya setelah tag, contoh: *@' + BOT_NUMBER + ' tolong jelasin apa itu deforestasi, nggih?*';
+        } else {
+            const res = await aiChat.NgawiAI(question);
+            if (!res.status) {
+                return sock.sendMessage(from, { text: '❌ Ngawi AI lagi bermasalah nih, coba lagi sebentar ya, nggih. (err: ' + (String(res.code) || 'unknown') + ')' }, { quoted: m });
+            }
+            reply = (res.answer || '').replace(/\*\*(.+?)\*\*/g, '*$1*').trim();
+            if (!reply) reply = '🤔 Hmm, jawabanku kosong. Coba tanya ulang dengan kalimat lain ya.';
+        }
+        if (reply.length > 4096) reply = reply.slice(0, 4096) + '…';
+        await sock.sendMessage(from, { text: reply }, { quoted: m });
+        logAct('ai', 'grup', '@'+userId.slice(0,6)+'… : ' + question.slice(0, 60));
+        return true;
+    } catch (e) {
+        console.error('[NGAWI-AI-ERR]', e.message);
+        try { await sock.sendMessage(from, { text: '⛔ Ngawi AI error: ' + String(e.message).slice(0, 150) }, { quoted: m }); } catch (e2) {}
+        return true;
+    }
+}
+
 const fmtPrice = (n) => {
     if (n >= 1e12) return (n / 1e12).toFixed(2).replace(/\.?0+$/, '') + ' T';
     if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + ' M';
@@ -189,6 +243,7 @@ async function startWhatsApp() {
             console.log(`[MSG-IN] from=${from} type=${Object.keys(m.message)[0]} text=${JSON.stringify(text)} keyType=${m.key.type}`);
             const userId = (m.key.participant || from || '').replace(/[^0-9]/g, '');
             if (userId) db.setLastSeenJid(userId, (m.key.participant || from));
+            if (await handleNgawiAi(sock, m, from, userId)) return;
             if (!text.startsWith('.')) return;
             const args = text.slice(1).split(' ');
             const cmd = args[0];
